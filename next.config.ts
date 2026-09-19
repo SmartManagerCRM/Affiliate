@@ -7,6 +7,17 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
 const nextConfig: NextConfig = {
   images: {
     qualities: [60, 75, 90],
+    // Next.js 16 requires local image sources with query strings to be
+    // explicitly allow-listed. /placeholder/[slug] takes title/subtitle/w/h
+    // (and a variant seed) that differ per product, so `search` is
+    // intentionally omitted to allow any query string on this one path —
+    // the route only ever reads those specific params itself, it doesn't
+    // proxy or fetch arbitrary URLs.
+    localPatterns: [
+      {
+        pathname: "/placeholder/**",
+      },
+    ],
     remotePatterns: [
       ...(supabaseHostname
         ? [
