@@ -1,5 +1,6 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { cache } from "react";
+import { createPublicClient } from "@/lib/supabase/public";
 import type {
   Activity,
   Brand,
@@ -11,44 +12,46 @@ import type {
   Retailer,
 } from "@/lib/types";
 
-export async function getActivities(): Promise<Activity[]> {
-  const supabase = await createClient();
+export const getActivities = cache(async (): Promise<Activity[]> => {
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from("activities")
     .select("*")
     .eq("active", true)
     .order("sort_order", { ascending: true });
   return data ?? [];
-}
+});
 
-export async function getActivityBySlug(slug: string): Promise<Activity | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("activities")
-    .select("*")
-    .eq("slug", slug)
-    .eq("active", true)
-    .maybeSingle();
-  return data;
-}
+export const getActivityBySlug = cache(
+  async (slug: string): Promise<Activity | null> => {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from("activities")
+      .select("*")
+      .eq("slug", slug)
+      .eq("active", true)
+      .maybeSingle();
+    return data;
+  }
+);
 
-export async function getCategoriesForActivity(
-  activityId: string
-): Promise<Category[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("activity_id", activityId)
-    .eq("active", true)
-    .order("sort_order", { ascending: true });
-  return data ?? [];
-}
+export const getCategoriesForActivity = cache(
+  async (activityId: string): Promise<Category[]> => {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("activity_id", activityId)
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+    return data ?? [];
+  }
+);
 
 async function attachOffers(
   products: (ProductCardData & { [key: string]: unknown })[]
 ): Promise<ProductCardData[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const ids = products.map((p) => p.id);
   if (ids.length === 0) return products as ProductCardData[];
 
@@ -73,23 +76,25 @@ async function attachOffers(
   }));
 }
 
-export async function getFeaturedProducts(limit = 8): Promise<ProductCardData[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("products")
-    .select("*, brand:brands(*)")
-    .eq("status", "published")
-    .eq("featured", true)
-    .order("updated_at", { ascending: false })
-    .limit(limit);
+export const getFeaturedProducts = cache(
+  async (limit = 8): Promise<ProductCardData[]> => {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from("products")
+      .select("*, brand:brands(*)")
+      .eq("status", "published")
+      .eq("featured", true)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
 
-  return attachOffers((data ?? []) as ProductCardData[]);
-}
+    return attachOffers((data ?? []) as ProductCardData[]);
+  }
+);
 
 export async function getProducts(
   filters: ProductFilters
 ): Promise<ProductCardData[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   let productIdsFromCategory: string[] | null = null;
   if (filters.categorySlug && filters.activitySlug) {
@@ -193,52 +198,52 @@ export async function getProducts(
   return products;
 }
 
-export async function getProductBySlug(
-  slug: string
-): Promise<ProductWithMeta | null> {
-  const supabase = await createClient();
-  const { data: product } = await supabase
-    .from("products")
-    .select("*, brand:brands(*)")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle();
+export const getProductBySlug = cache(
+  async (slug: string): Promise<ProductWithMeta | null> => {
+    const supabase = createPublicClient();
+    const { data: product } = await supabase
+      .from("products")
+      .select("*, brand:brands(*)")
+      .eq("slug", slug)
+      .eq("status", "published")
+      .maybeSingle();
 
-  if (!product) return null;
+    if (!product) return null;
 
-  const [{ data: images }, { data: offers }, { data: categoryLinks }] =
-    await Promise.all([
-      supabase
-        .from("product_images")
-        .select("*")
-        .eq("product_id", product.id)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("offers_public")
-        .select("*")
-        .eq("product_id", product.id)
-        .order("priority", { ascending: false })
-        .order("price", { ascending: true }),
-      supabase
-        .from("product_categories")
-        .select("category:categories(*)")
-        .eq("product_id", product.id),
-    ]);
+    const [{ data: images }, { data: offers }, { data: categoryLinks }] =
+      await Promise.all([
+        supabase
+          .from("product_images")
+          .select("*")
+          .eq("product_id", product.id)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("offers_public")
+          .select("*")
+          .eq("product_id", product.id)
+          .order("priority", { ascending: false })
+          .order("price", { ascending: true }),
+        supabase
+          .from("product_categories")
+          .select("category:categories(*)")
+          .eq("product_id", product.id),
+      ]);
 
-  const categories = (categoryLinks ?? [])
-    .map((row) => row.category)
-    .filter((c): c is Category => Boolean(c));
+    const categories = (categoryLinks ?? [])
+      .map((row) => row.category)
+      .filter((c): c is Category => Boolean(c));
 
-  return {
-    ...(product as ProductWithMeta),
-    images: images ?? [],
-    offers: offers ?? [],
-    categories,
-  };
-}
+    return {
+      ...(product as ProductWithMeta),
+      images: images ?? [],
+      offers: offers ?? [],
+      categories,
+    };
+  }
+);
 
 export async function searchProducts(searchQuery: string, limit = 20) {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase.rpc("search_products", {
     p_query: searchQuery,
     p_limit: limit,
@@ -251,7 +256,7 @@ export async function getRetailersForProducts(
   productIds: string[]
 ): Promise<Retailer[]> {
   if (productIds.length === 0) return [];
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from("offers_public")
     .select("retailer_id, retailer_name, retailer_slug, retailer_logo, retailer_country")
@@ -277,35 +282,39 @@ export async function getRetailersForProducts(
   return Array.from(seen.values());
 }
 
-export async function getBrandsForActivity(activitySlug: string): Promise<Brand[]> {
-  const supabase = await createClient();
-  const activity = await getActivityBySlug(activitySlug);
-  if (!activity) return [];
-  const { data: rows } = await supabase
-    .from("product_activities")
-    .select("product_id")
-    .eq("activity_id", activity.id);
-  const ids = (rows ?? []).map((r) => r.product_id);
-  if (ids.length === 0) return [];
-  const { data } = await supabase
-    .from("products")
-    .select("brand:brands(*)")
-    .in("id", ids)
-    .not("brand_id", "is", null);
-  const seen = new Map<string, Brand>();
-  (data ?? []).forEach((row) => {
-    const brand = row.brand as Brand | null;
-    if (brand) seen.set(brand.id, brand);
-  });
-  return Array.from(seen.values());
-}
+export const getBrandsForActivity = cache(
+  async (activitySlug: string): Promise<Brand[]> => {
+    const supabase = createPublicClient();
+    const activity = await getActivityBySlug(activitySlug);
+    if (!activity) return [];
+    const { data: rows } = await supabase
+      .from("product_activities")
+      .select("product_id")
+      .eq("activity_id", activity.id);
+    const ids = (rows ?? []).map((r) => r.product_id);
+    if (ids.length === 0) return [];
+    const { data } = await supabase
+      .from("products")
+      .select("brand:brands(*)")
+      .in("id", ids)
+      .not("brand_id", "is", null);
+    const seen = new Map<string, Brand>();
+    (data ?? []).forEach((row) => {
+      const brand = row.brand as Brand | null;
+      if (brand) seen.set(brand.id, brand);
+    });
+    return Array.from(seen.values());
+  }
+);
 
-export async function getSiteSetting<T = unknown>(key: string): Promise<T | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("site_settings")
-    .select("value")
-    .eq("key", key)
-    .maybeSingle();
-  return (data?.value as T) ?? null;
-}
+export const getSiteSetting = cache(
+  async <T = unknown>(key: string): Promise<T | null> => {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", key)
+      .maybeSingle();
+    return (data?.value as T) ?? null;
+  }
+);

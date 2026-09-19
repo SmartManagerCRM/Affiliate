@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { REF_COOKIE_NAME } from "@/lib/constants";
 
 function detectDeviceType(userAgent: string | null) {
@@ -25,7 +25,7 @@ export async function GET(
   { params }: { params: Promise<{ offerId: string }> }
 ) {
   const { offerId } = await params;
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   const ref =
     request.nextUrl.searchParams.get("ref") ??

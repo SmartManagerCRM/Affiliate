@@ -7,6 +7,10 @@ import { Disclosure } from "@/components/site/Disclosure";
 import { getActivities, getFeaturedProducts } from "@/lib/queries";
 import { SITE_TAGLINE } from "@/lib/constants";
 
+// No per-visitor data on this page, so it can be cached and revalidated in
+// the background instead of hitting the database on every single request.
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Selected Items — Smart Products Carefully Selected",
   description:

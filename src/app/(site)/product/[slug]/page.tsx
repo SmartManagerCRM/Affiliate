@@ -12,6 +12,10 @@ import { placeholderImage } from "@/lib/image";
 import { formatPrice } from "@/lib/format";
 import { SITE_URL } from "@/lib/constants";
 
+// No per-visitor data on this page, so it can be cached and revalidated in
+// the background instead of hitting the database on every single request.
+export const revalidate = 60;
+
 export async function generateMetadata({
   params,
 }: {

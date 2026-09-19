@@ -118,6 +118,12 @@ export async function GET(
         </div>
       </div>
     ),
-    { width, height }
+    {
+      width,
+      height,
+      // Deterministic given its inputs — cache aggressively so the same
+      // fallback image isn't re-rendered via Satori on every page view.
+      headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+    }
   );
 }
