@@ -11,8 +11,9 @@ export async function proxy(request: NextRequest) {
   // does — every other route is public and must never pay for a Supabase Auth
   // round trip just to render. Skipping it here is a meaningful chunk of the
   // latency on every public page load.
+  const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/reset-password"];
   let response = NextResponse.next({ request });
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+  if (pathname.startsWith("/admin") && !PUBLIC_ADMIN_PATHS.includes(pathname)) {
     const session = await updateSession(request);
     response = session.response;
     if (!session.user) {
