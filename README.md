@@ -122,25 +122,61 @@ managed from within `/admin` itself.
 
 ## Deployment
 
-This is a standard Next.js 16 app — deploy it to Vercel, Netlify, or any Node
-hosting that supports the App Router (`proxy.ts`/middleware requires a Node
-runtime, which all of these provide).
+This app needs a real Node.js server, not a static export — it uses Server
+Actions (all Admin mutations), Route Handlers (`/go/[offerId]`, `/placeholder`,
+`sitemap.xml`), and `proxy.ts` (Next.js 16's middleware, Node runtime only).
+`next build` + `next start` runs all of that as one persistent Node process, so
+any Node host works, including Hostinger.
 
-1. Push this repository to your Git provider.
-2. Import it into your hosting platform.
-3. Set the three environment variables above (production values).
-4. Point `selected-items.smartmanager.me` at the deployment (CNAME/ALIAS per your
-   host's instructions) and set it as the primary domain.
-5. Confirm the homepage's rendered HTML contains, inside `<head>`:
+### Deploying on Hostinger
+
+Hostinger has two ways to run a Node.js app; either works for this repo as-is
+(no `output: "standalone"` or extra config needed — it's driven entirely by
+`package.json`'s scripts).
+
+**Option A — Managed Node.js Hosting (simplest):**
+
+1. hPanel → **Websites** → **Add Website** → **Node.js Apps** → **Import Git
+   Repository**, authorize GitHub, and select this repo/branch.
+2. Set:
+   - **Node.js version:** 20 (or later — this repo requires ≥20.9, pinned via
+     `engines` in `package.json`)
+   - **Install command:** `npm ci`
+   - **Build command:** `npm run build`
+   - **Start command:** `npm run start -- -p $PORT`
+3. Add the environment variables from below in the app's **Environment
+   Variables** panel (production values, not the ones in `.env.local`).
+4. Deploy. Hostinger builds and starts the app and gives it a URL to verify
+   first.
+5. Point `selected-items.smartmanager.me` at this Node.js app (hPanel →
+   Domains, or your DNS provider if the domain is managed elsewhere: a CNAME/A
+   record per Hostinger's instructions for the app), then set it as the app's
+   domain in hPanel so SSL gets issued for it.
+
+**Option B — VPS (more control):** provision a Hostinger VPS, install Node 20,
+`git clone` the repo, `npm ci && npm run build`, run it with PM2
+(`pm2 start npm --name selected-items -- start`), and reverse-proxy it through
+Nginx with a Let's Encrypt certificate for `selected-items.smartmanager.me`.
+Use this if you need more than one app on the box or custom server config.
+
+**Either way:**
+
+1. Set the three environment variables below to your **production** Supabase
+   values (`NEXT_PUBLIC_SITE_URL=https://selected-items.smartmanager.me`).
+2. After it's live, confirm the homepage's rendered HTML contains, inside
+   `<head>`:
    ```html
    <meta name="mitgo-verification" content="7b4225f7-5ec5-42da-a529-8bcdf03047c6" />
    ```
-   (Set in `src/app/layout.tsx` via the `metadata.other` field — applies to every
-   page, including the homepage, and cannot be accidentally dropped by a
-   page-level metadata override.)
+   (Set in `src/app/layout.tsx` via `metadata.other` — applies to every page,
+   including the homepage, and can't be dropped by a page-level override.)
+3. If product images fail to render only in production, Next's built-in image
+   optimizer (`sharp`) occasionally can't install its native binary on some
+   constrained hosts — if that happens, add `images: { unoptimized: true }` to
+   `next.config.ts` as a fallback (images still work, just unresized).
 
 No build step touches the database — schema, RLS and demo data already live in
-the connected Supabase project.
+the connected Supabase project, independent of where the app itself runs.
 
 ## Demo data
 
