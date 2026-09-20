@@ -1,12 +1,18 @@
 import type { AffiliateNetworkAdapter } from "./types";
 import type { SyncStore } from "./syncStore";
+import { validateNormalizedProduct } from "./validation";
 
 export type SyncRunOutcome = {
   runId: string;
   status: "completed" | "failed";
   productsFound: number;
+  productsImported: number;
+  productsUpdated: number;
+  productsRejected: number;
   errorMessage: string | null;
 };
+
+const MAX_PAGES = 500; // safety bound against a misbehaving adapter looping forever
 
 /**
  * Runs one synchronization attempt for a single network/adapter pair and
@@ -14,8 +20,15 @@ export type SyncRunOutcome = {
  * action and the future scheduler (Phase 8) call — there is no separate,
  * less-safe path for manual syncs.
  *
- * Phase 1 only fetches and counts products; importing/normalizing/
- * deduplicating them into the catalog is Phase 2+.
+ * For each page of products the adapter returns:
+ *   1. validate it (has a price, currency, affiliate URL, etc.)
+ *   2. if invalid: log a product_import_errors row, count it rejected
+ *   3. if valid: upsert a product_import_sources row (status "pending")
+ *      — new external id -> "imported", already-seen external id -> "updated"
+ *
+ * This only ever stages pending import rows — it never writes to the real
+ * products/offers tables. That happens later, once a human (or, after
+ * Phase 4/5, an auto-publish rule) approves a candidate in the review queue.
  */
 export async function runNetworkSync(
   store: SyncStore,
@@ -24,15 +37,69 @@ export async function runNetworkSync(
 ): Promise<SyncRunOutcome> {
   const run = await store.createRun(networkId);
 
-  try {
-    const result = await adapter.fetchProducts({});
+  let productsFound = 0;
+  let productsImported = 0;
+  let productsUpdated = 0;
+  let productsRejected = 0;
 
-    await store.completeRun(run.id, { productsFound: result.products.length });
+  try {
+    let cursor: string | null | undefined = undefined;
+    let hasMore = true;
+    let pages = 0;
+
+    while (hasMore) {
+      if (++pages > MAX_PAGES) {
+        throw new Error(`Exceeded maximum page count (${MAX_PAGES}) — the adapter's cursor may be stuck.`);
+      }
+
+      const page = await adapter.fetchProducts({ cursor });
+      productsFound += page.products.length;
+
+      for (const product of page.products) {
+        const validation = validateNormalizedProduct(product);
+
+        if (!validation.valid) {
+          productsRejected += 1;
+          await store.logError({
+            syncRunId: run.id,
+            networkId,
+            externalId: product.externalProductId || null,
+            errorType: validation.errorType,
+            errorMessage: validation.errorMessage,
+            rawData: product.raw,
+          });
+          continue;
+        }
+
+        const outcome = await store.upsertImportSource({
+          networkId,
+          externalProductId: product.externalProductId,
+          externalOfferId: product.offers[0]?.externalOfferId ?? null,
+          rawData: product.raw,
+        });
+
+        if (outcome === "inserted") productsImported += 1;
+        else productsUpdated += 1;
+      }
+
+      hasMore = page.hasMore;
+      cursor = page.nextCursor ?? null;
+    }
+
+    await store.completeRun(run.id, {
+      productsFound,
+      productsImported,
+      productsUpdated,
+      productsRejected,
+    });
 
     return {
       runId: run.id,
       status: "completed",
-      productsFound: result.products.length,
+      productsFound,
+      productsImported,
+      productsUpdated,
+      productsRejected,
       errorMessage: null,
     };
   } catch (err) {
@@ -49,7 +116,10 @@ export async function runNetworkSync(
     return {
       runId: run.id,
       status: "failed",
-      productsFound: 0,
+      productsFound,
+      productsImported,
+      productsUpdated,
+      productsRejected,
       errorMessage: message,
     };
   }

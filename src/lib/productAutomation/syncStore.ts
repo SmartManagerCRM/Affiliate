@@ -39,9 +39,23 @@ export type LogErrorParams = {
   rawData?: unknown;
 };
 
+export type UpsertImportSourceParams = {
+  networkId: string;
+  externalProductId: string;
+  externalOfferId?: string | null;
+  rawData: unknown;
+};
+
+/** "inserted" — first time this (network, external product/offer id) has been
+ * seen, a new pending product_import_sources row was created. "updated" —
+ * a row already existed (this is a re-sync of a known item), its raw_data
+ * and last_synced_at were refreshed in place rather than duplicated. */
+export type UpsertImportSourceOutcome = "inserted" | "updated";
+
 export interface SyncStore {
   createRun(networkId: string): Promise<SyncRunRecord>;
   completeRun(runId: string, counts: SyncRunCounts): Promise<void>;
   failRun(runId: string, errorMessage: string, errorsCount?: number): Promise<void>;
   logError(params: LogErrorParams): Promise<void>;
+  upsertImportSource(params: UpsertImportSourceParams): Promise<UpsertImportSourceOutcome>;
 }

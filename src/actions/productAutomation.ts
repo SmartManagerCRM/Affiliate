@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { NETWORK_REGISTRY, isNetworkConfigured } from "@/lib/productAutomation/registry";
+import { getAdapterForNetwork } from "@/lib/productAutomation/adapterFactory";
+import { SupabaseSyncStore } from "@/lib/productAutomation/supabaseSyncStore";
+import { runNetworkSync } from "@/lib/productAutomation/syncEngine";
 import type { ImportConfig } from "@/lib/productAutomation/importConfig";
 
 export type SyncAllResult = {
@@ -13,16 +16,15 @@ export type SyncAllResult = {
 
 /**
  * The one entry point for triggering a synchronization by hand. Phase 8's
- * scheduler will call the same underlying runNetworkSync() per connected
+ * scheduler will call this same runNetworkSync() path per connected
  * network — this action never gets a separate, less-careful code path.
  *
- * Phase 1 has no real network adapters yet (Admitad/CJ/ClickBank are all
- * "Not Connected" until their credentials + adapter land in later phases),
- * so this always finds zero connected networks and does nothing but report
- * that honestly — it never fabricates a sync result.
+ * Only networks that are both (a) configured (real credentials present)
+ * and (b) have a real adapter implemented get synced. CJ/ClickBank have
+ * neither yet, so they're always skipped honestly rather than faked.
  */
 export async function syncAllNetworks(): Promise<SyncAllResult> {
-  await requireAdmin();
+  const { supabase } = await requireAdmin();
 
   const connected = NETWORK_REGISTRY.filter(isNetworkConfigured);
 
@@ -33,11 +35,43 @@ export async function syncAllNetworks(): Promise<SyncAllResult> {
     };
   }
 
-  // Phase 2+: for each connected entry, resolve its real adapter and its
-  // matching affiliate_networks row, then call runNetworkSync() per network.
+  const store = new SupabaseSyncStore(supabase);
+  const results: string[] = [];
+  let ranNetworks = 0;
+
+  for (const entry of connected) {
+    const adapter = getAdapterForNetwork(entry.key);
+    if (!adapter) {
+      results.push(`${entry.label}: connected, but no adapter is implemented yet.`);
+      continue;
+    }
+
+    const { data: networkRow } = await supabase
+      .from("affiliate_networks")
+      .select("id")
+      .ilike("name", entry.label)
+      .maybeSingle();
+
+    if (!networkRow) {
+      results.push(`${entry.label}: connected, but no matching affiliate_networks row was found.`);
+      continue;
+    }
+
+    const outcome = await runNetworkSync(store, networkRow.id, adapter);
+    ranNetworks += 1;
+    results.push(
+      outcome.status === "completed"
+        ? `${entry.label}: imported ${outcome.productsImported}, updated ${outcome.productsUpdated}, rejected ${outcome.productsRejected} (of ${outcome.productsFound} found).`
+        : `${entry.label}: sync failed — ${outcome.errorMessage}`
+    );
+  }
+
+  revalidatePath("/admin/product-automation");
+  revalidatePath("/admin/product-automation/history");
+
   return {
-    ranNetworks: 0,
-    message: "Connected networks found, but no adapters are implemented yet.",
+    ranNetworks,
+    message: results.join(" "),
   };
 }
 

@@ -1,12 +1,21 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { runNetworkSync } from "./syncEngine";
 import { MockAdapter } from "./adapters/mockAdapter";
-import type { LogErrorParams, SyncRunCounts, SyncRunRecord, SyncStore } from "./syncStore";
+import type {
+  LogErrorParams,
+  SyncRunCounts,
+  SyncRunRecord,
+  SyncStore,
+  UpsertImportSourceOutcome,
+  UpsertImportSourceParams,
+} from "./syncStore";
+import type { NormalizedProduct } from "./types";
 
 /** Deterministic in-memory SyncStore — no network, no database. */
 class InMemorySyncStore implements SyncStore {
   runs = new Map<string, SyncRunRecord>();
   errors: LogErrorParams[] = [];
+  importSources = new Map<string, unknown>();
   private nextId = 1;
 
   async createRun(networkId: string): Promise<SyncRunRecord> {
@@ -55,7 +64,56 @@ class InMemorySyncStore implements SyncStore {
   async logError(params: LogErrorParams): Promise<void> {
     this.errors.push(params);
   }
+
+  async upsertImportSource(params: UpsertImportSourceParams): Promise<UpsertImportSourceOutcome> {
+    const key = `${params.networkId}:${params.externalProductId}:${params.externalOfferId ?? ""}`;
+    const outcome: UpsertImportSourceOutcome = this.importSources.has(key) ? "updated" : "inserted";
+    this.importSources.set(key, params.rawData);
+    return outcome;
+  }
 }
+
+const VALID_PRODUCT_A: NormalizedProduct = {
+  externalProductId: "a-1",
+  name: "Product A",
+  images: [],
+  raw: { id: "a-1" },
+  offers: [
+    {
+      externalOfferId: "a-1-offer",
+      price: 10,
+      currency: "USD",
+      availability: "in_stock",
+      affiliateUrl: "https://example.test/go/a-1",
+      retailerName: "Retailer",
+    },
+  ],
+};
+
+const VALID_PRODUCT_B: NormalizedProduct = {
+  externalProductId: "b-1",
+  name: "Product B",
+  images: [],
+  raw: { id: "b-1" },
+  offers: [
+    {
+      externalOfferId: "b-1-offer",
+      price: 20,
+      currency: "USD",
+      availability: "in_stock",
+      affiliateUrl: "https://example.test/go/b-1",
+      retailerName: "Retailer",
+    },
+  ],
+};
+
+const INVALID_PRODUCT: NormalizedProduct = {
+  externalProductId: "invalid-1",
+  name: "Invalid Product",
+  images: [],
+  raw: { id: "invalid-1" },
+  offers: [],
+};
 
 describe("runNetworkSync", () => {
   let store: InMemorySyncStore;
@@ -70,14 +128,29 @@ describe("runNetworkSync", () => {
     const outcome = await runNetworkSync(store, "network-1", adapter);
 
     expect(outcome.status).toBe("completed");
-    expect(outcome.productsFound).toBe(2); // fixture has 2 products
+    expect(outcome.productsFound).toBe(5); // default fixture set has 5 products (2 valid, 3 invalid)
     expect(outcome.errorMessage).toBeNull();
 
     const stored = store.runs.get(outcome.runId);
     expect(stored?.status).toBe("completed");
-    expect(stored?.productsFound).toBe(2);
+    expect(stored?.productsFound).toBe(5);
     expect(stored?.completedAt).not.toBeNull();
-    expect(store.errors).toHaveLength(0);
+  });
+
+  it("imports valid products and rejects invalid ones, logging why", async () => {
+    const adapter = new MockAdapter();
+
+    const outcome = await runNetworkSync(store, "network-1", adapter);
+
+    expect(outcome.productsImported).toBe(2);
+    expect(outcome.productsUpdated).toBe(0);
+    expect(outcome.productsRejected).toBe(3);
+    expect(store.errors).toHaveLength(3);
+    expect(store.errors.map((e) => e.errorType).sort()).toEqual([
+      "missing_affiliate_url",
+      "missing_offer",
+      "missing_price",
+    ]);
   });
 
   it("creates a sync run for the exact network id it was called with", async () => {
@@ -114,5 +187,44 @@ describe("runNetworkSync", () => {
     const outcome = await runNetworkSync(store, "network-1", adapter);
     const stored = store.runs.get(outcome.runId);
     expect(stored?.status).not.toBe("running");
+  });
+
+  it("accumulates results correctly across multiple pages", async () => {
+    const products = [VALID_PRODUCT_A, VALID_PRODUCT_B, INVALID_PRODUCT];
+    const adapter = new MockAdapter({ products, pageSize: 1 }); // forces 3 pages
+
+    const outcome = await runNetworkSync(store, "network-1", adapter);
+
+    expect(outcome.status).toBe("completed");
+    expect(outcome.productsFound).toBe(3);
+    expect(outcome.productsImported).toBe(2);
+    expect(outcome.productsRejected).toBe(1);
+  });
+
+  it("re-syncing the same external id updates rather than duplicates it", async () => {
+    const adapter = new MockAdapter({ products: [VALID_PRODUCT_A] });
+
+    const first = await runNetworkSync(store, "network-1", adapter);
+    expect(first.productsImported).toBe(1);
+    expect(first.productsUpdated).toBe(0);
+
+    const second = await runNetworkSync(store, "network-1", adapter);
+    expect(second.productsImported).toBe(0);
+    expect(second.productsUpdated).toBe(1);
+
+    expect(store.importSources.size).toBe(1);
+  });
+
+  it("a partial import (mix of valid and invalid) still completes the run", async () => {
+    const products = [VALID_PRODUCT_A, INVALID_PRODUCT, VALID_PRODUCT_B];
+    const adapter = new MockAdapter({ products });
+
+    const outcome = await runNetworkSync(store, "network-1", adapter);
+
+    expect(outcome.status).toBe("completed");
+    expect(outcome.productsImported).toBe(2);
+    expect(outcome.productsRejected).toBe(1);
+    expect(store.errors).toHaveLength(1);
+    expect(store.errors[0].externalId).toBe("invalid-1");
   });
 });

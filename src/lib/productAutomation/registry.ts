@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getAdmitadConfig, isAdmitadFullyConfigured } from "./adapters/admitad/config";
+
 /**
  * The known affiliate networks the automation system can eventually talk
  * to, and which server-side env vars each needs. This is metadata only —
@@ -10,14 +12,25 @@ import "server-only";
 export type NetworkRegistryEntry = {
   key: string;
   label: string;
+  /** Documents the env vars this network uses, for the admin UI. Not
+   * necessarily a flat AND — see `isConfigured` when a network's real
+   * requirement is more nuanced than "every one of these is set". */
   requiredEnvVars: string[];
+  /** Overrides the default "every requiredEnvVars is set" check. Admitad's
+   * real requirement is "(an access token) OR (a client id + secret), AND
+   * a product feed URL" — not a flat AND over a fixed list. */
+  isConfigured?: () => boolean;
 };
 
 export const NETWORK_REGISTRY: NetworkRegistryEntry[] = [
   {
     key: "admitad",
     label: "Admitad",
-    requiredEnvVars: ["ADMITAD_CLIENT_ID", "ADMITAD_CLIENT_SECRET"],
+    requiredEnvVars: [
+      "ADMITAD_ACCESS_TOKEN (or ADMITAD_CLIENT_ID + ADMITAD_CLIENT_SECRET)",
+      "ADMITAD_PRODUCT_FEED_URL",
+    ],
+    isConfigured: () => isAdmitadFullyConfigured(getAdmitadConfig()),
   },
   {
     key: "cj",
@@ -31,8 +44,9 @@ export const NETWORK_REGISTRY: NetworkRegistryEntry[] = [
   },
 ];
 
-/** True only when every env var this network needs is set. Never returns the values themselves. */
+/** True when this network's configuration is complete. Never returns the values themselves. */
 export function isNetworkConfigured(entry: NetworkRegistryEntry): boolean {
+  if (entry.isConfigured) return entry.isConfigured();
   return entry.requiredEnvVars.every((name) => Boolean(process.env[name]?.trim()));
 }
 

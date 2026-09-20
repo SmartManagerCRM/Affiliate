@@ -1,6 +1,13 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
-import type { LogErrorParams, SyncRunCounts, SyncRunRecord, SyncStore } from "./syncStore";
+import type {
+  LogErrorParams,
+  SyncRunCounts,
+  SyncRunRecord,
+  SyncStore,
+  UpsertImportSourceOutcome,
+  UpsertImportSourceParams,
+} from "./syncStore";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
 
@@ -80,6 +87,48 @@ export class SupabaseSyncStore implements SyncStore {
       .eq("id", runId);
 
     if (error) throw new Error(error.message);
+  }
+
+  async upsertImportSource(params: UpsertImportSourceParams): Promise<UpsertImportSourceOutcome> {
+    // No DB-level unique constraint exists yet (deliberately — Phase 3
+    // designs real dedup using multiple signals, not just external id), so
+    // this does an application-level select-then-write. At Phase 2's scale
+    // (one sync run at a time, not yet concurrent) this is safe; Phase 8's
+    // concurrency lock will guard the "two runs at once" case.
+    let query = this.supabase
+      .from("product_import_sources")
+      .select("id")
+      .eq("network_id", params.networkId)
+      .eq("external_product_id", params.externalProductId);
+
+    query = params.externalOfferId
+      ? query.eq("external_offer_id", params.externalOfferId)
+      : query.is("external_offer_id", null);
+
+    const { data: existing, error: selectError } = await query.maybeSingle();
+    if (selectError) throw new Error(selectError.message);
+
+    const now = new Date().toISOString();
+
+    if (existing) {
+      const { error } = await this.supabase
+        .from("product_import_sources")
+        .update({ raw_data: params.rawData as never, last_synced_at: now, updated_at: now })
+        .eq("id", existing.id);
+      if (error) throw new Error(error.message);
+      return "updated";
+    }
+
+    const { error } = await this.supabase.from("product_import_sources").insert({
+      network_id: params.networkId,
+      external_product_id: params.externalProductId,
+      external_offer_id: params.externalOfferId ?? null,
+      raw_data: params.rawData as never,
+      import_status: "pending",
+      last_synced_at: now,
+    });
+    if (error) throw new Error(error.message);
+    return "inserted";
   }
 
   async logError(params: LogErrorParams): Promise<void> {
