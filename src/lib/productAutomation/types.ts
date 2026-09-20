@@ -27,6 +27,8 @@ export type NormalizedProduct = {
   brand?: string | null;
   sku?: string | null;
   gtin?: string | null;
+  /** Model number/name, when the source distinguishes it from name/SKU — a dedup identity signal. */
+  model?: string | null;
   description?: string | null;
   shortDescription?: string | null;
   images: string[];

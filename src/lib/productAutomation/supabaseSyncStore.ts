@@ -1,6 +1,9 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
 import type {
+  DedupCandidate,
+  DedupResult,
+  FindDedupCandidatesParams,
   LogErrorParams,
   SyncRunCounts,
   SyncRunRecord,
@@ -8,6 +11,7 @@ import type {
   UpsertImportSourceOutcome,
   UpsertImportSourceParams,
 } from "./syncStore";
+import { normalizeNameForMatch } from "./dedup";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
 
@@ -90,10 +94,10 @@ export class SupabaseSyncStore implements SyncStore {
   }
 
   async upsertImportSource(params: UpsertImportSourceParams): Promise<UpsertImportSourceOutcome> {
-    // No DB-level unique constraint exists yet (deliberately — Phase 3
-    // designs real dedup using multiple signals, not just external id), so
-    // this does an application-level select-then-write. At Phase 2's scale
-    // (one sync run at a time, not yet concurrent) this is safe; Phase 8's
+    // No DB-level unique constraint exists yet (deliberately — dedup uses
+    // multiple signals, not just external id), so this does an
+    // application-level select-then-write. At the current scale (one sync
+    // run at a time, not yet concurrent) this is safe; Phase 8's
     // concurrency lock will guard the "two runs at once" case.
     let query = this.supabase
       .from("product_import_sources")
@@ -109,26 +113,159 @@ export class SupabaseSyncStore implements SyncStore {
     if (selectError) throw new Error(selectError.message);
 
     const now = new Date().toISOString();
+    const normalizedFields = {
+      raw_data: params.rawData as never,
+      normalized_data: params.normalizedData as never,
+      normalized_name: params.normalizedName,
+      gtin: params.gtin,
+      sku: params.sku,
+      brand: params.brand,
+    };
 
     if (existing) {
       const { error } = await this.supabase
         .from("product_import_sources")
-        .update({ raw_data: params.rawData as never, last_synced_at: now, updated_at: now })
+        .update({ ...normalizedFields, last_synced_at: now, updated_at: now })
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
-      return "updated";
+      return { outcome: "updated", importSourceId: existing.id };
     }
 
-    const { error } = await this.supabase.from("product_import_sources").insert({
-      network_id: params.networkId,
-      external_product_id: params.externalProductId,
-      external_offer_id: params.externalOfferId ?? null,
-      raw_data: params.rawData as never,
-      import_status: "pending",
-      last_synced_at: now,
-    });
+    const { data: inserted, error } = await this.supabase
+      .from("product_import_sources")
+      .insert({
+        network_id: params.networkId,
+        external_product_id: params.externalProductId,
+        external_offer_id: params.externalOfferId ?? null,
+        ...normalizedFields,
+        import_status: "pending",
+        last_synced_at: now,
+      })
+      .select("id")
+      .single();
+    if (error || !inserted) throw new Error(error?.message ?? "Failed to insert import source");
+    return { outcome: "inserted", importSourceId: inserted.id };
+  }
+
+  async findDedupCandidateImportSources(params: FindDedupCandidatesParams): Promise<DedupCandidate[]> {
+    const SELECT = "id, gtin, sku, brand, normalized_name, normalized_data";
+
+    // Three separate parameterized .eq() queries (rather than one .or()
+    // with these values interpolated into a raw filter string) — gtin/sku
+    // come straight from an external feed and could contain characters
+    // (commas, parentheses) that would corrupt or hijack a hand-built
+    // PostgREST filter expression.
+    const queries = [];
+
+    if (params.gtin) {
+      queries.push(
+        this.supabase
+          .from("product_import_sources")
+          .select(SELECT)
+          .neq("id", params.excludeImportSourceId)
+          .not("import_status", "in", "(rejected,failed)")
+          .eq("gtin", params.gtin)
+      );
+    }
+    if (params.sku) {
+      queries.push(
+        this.supabase
+          .from("product_import_sources")
+          .select(SELECT)
+          .neq("id", params.excludeImportSourceId)
+          .not("import_status", "in", "(rejected,failed)")
+          .eq("sku", params.sku)
+      );
+    }
+    if (params.normalizedName) {
+      queries.push(
+        this.supabase
+          .from("product_import_sources")
+          .select(SELECT)
+          .neq("id", params.excludeImportSourceId)
+          .not("import_status", "in", "(rejected,failed)")
+          .eq("normalized_name", params.normalizedName)
+      );
+    }
+
+    if (queries.length === 0) return [];
+
+    const results = await Promise.all(queries);
+
+    type CandidateRow = {
+      id: string;
+      gtin: string | null;
+      sku: string | null;
+      brand: string | null;
+      normalized_name: string | null;
+      normalized_data: unknown;
+    };
+
+    const byId = new Map<string, CandidateRow>();
+    for (const { data, error } of results) {
+      if (error) throw new Error(error.message);
+      for (const row of (data ?? []) as CandidateRow[]) {
+        byId.set(row.id, row);
+      }
+    }
+
+    return Array.from(byId.values()).map((row) => ({
+      kind: "importSource" as const,
+      id: row.id,
+      signals: {
+        gtin: row.gtin,
+        sku: row.sku,
+        brand: row.brand,
+        model: extractModel(row.normalized_data),
+        normalizedName: row.normalized_name ?? "",
+      },
+    }));
+  }
+
+  async findPublishedProductsForDedup(): Promise<DedupCandidate[]> {
+    // Real products have no gtin/sku/model columns yet, so only name+brand
+    // signals are available on this side of the comparison. The catalog is
+    // small enough today to scan in memory; revisit if it grows large.
+    const { data, error } = await this.supabase
+      .from("products")
+      .select("id, name, brands(name)")
+      .eq("status", "published");
+
     if (error) throw new Error(error.message);
-    return "inserted";
+
+    return (data ?? []).map((row) => ({
+      kind: "product" as const,
+      id: row.id,
+      signals: {
+        gtin: null,
+        sku: null,
+        brand: row.brands?.name?.trim().toLowerCase() || null,
+        model: null,
+        normalizedName: normalizeNameForMatch(row.name),
+      },
+    }));
+  }
+
+  async updateDedupResult(importSourceId: string, result: DedupResult): Promise<void> {
+    const update =
+      result.status === "unique"
+        ? {
+            dedup_status: "unique",
+            dedup_confidence: null,
+            dedup_signals: [],
+            dedup_match_source_id: null,
+            dedup_match_product_id: null,
+          }
+        : {
+            dedup_status: "needs_review",
+            dedup_confidence: result.confidence,
+            dedup_signals: result.signals,
+            dedup_match_source_id: result.matchImportSourceId,
+            dedup_match_product_id: result.matchProductId,
+          };
+
+    const { error } = await this.supabase.from("product_import_sources").update(update).eq("id", importSourceId);
+    if (error) throw new Error(error.message);
   }
 
   async logError(params: LogErrorParams): Promise<void> {
@@ -143,4 +280,11 @@ export class SupabaseSyncStore implements SyncStore {
 
     if (error) throw new Error(error.message);
   }
+}
+
+/** normalized_data is stored as opaque jsonb — pull `model` back out defensively rather than trusting its shape. */
+function extractModel(normalizedData: unknown): string | null {
+  if (!normalizedData || typeof normalizedData !== "object") return null;
+  const model = (normalizedData as { model?: unknown }).model;
+  return typeof model === "string" && model.trim() ? model.trim().toLowerCase() : null;
 }

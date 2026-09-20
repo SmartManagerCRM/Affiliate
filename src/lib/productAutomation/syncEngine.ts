@@ -1,6 +1,8 @@
 import type { AffiliateNetworkAdapter } from "./types";
 import type { SyncStore } from "./syncStore";
 import { validateNormalizedProduct } from "./validation";
+import { extractIdentitySignals } from "./dedup";
+import { deduplicateImportedProduct, loadPublishedProductCandidates } from "./dedupEngine";
 
 export type SyncRunOutcome = {
   runId: string;
@@ -23,8 +25,13 @@ const MAX_PAGES = 500; // safety bound against a misbehaving adapter looping for
  * For each page of products the adapter returns:
  *   1. validate it (has a price, currency, affiliate URL, etc.)
  *   2. if invalid: log a product_import_errors row, count it rejected
- *   3. if valid: upsert a product_import_sources row (status "pending")
- *      — new external id -> "imported", already-seen external id -> "updated"
+ *   3. if valid: normalize its identity signals (gtin/sku/brand/model/name)
+ *      and upsert a product_import_sources row — new external id ->
+ *      "imported", already-seen external id -> "updated"
+ *   4. deduplicate: compare its identity against other staged candidates
+ *      and already-published products; a confident match sets
+ *      dedup_status = "needs_review" for a human to resolve later — never
+ *      an automatic merge
  *
  * This only ever stages pending import rows — it never writes to the real
  * products/offers tables. That happens later, once a human (or, after
@@ -43,6 +50,8 @@ export async function runNetworkSync(
   let productsRejected = 0;
 
   try {
+    const publishedProductCandidates = await loadPublishedProductCandidates(store);
+
     let cursor: string | null | undefined = undefined;
     let hasMore = true;
     let pages = 0;
@@ -71,15 +80,24 @@ export async function runNetworkSync(
           continue;
         }
 
-        const outcome = await store.upsertImportSource({
+        const identity = extractIdentitySignals(product);
+
+        const { outcome, importSourceId } = await store.upsertImportSource({
           networkId,
           externalProductId: product.externalProductId,
           externalOfferId: product.offers[0]?.externalOfferId ?? null,
           rawData: product.raw,
+          normalizedData: product,
+          normalizedName: identity.normalizedName,
+          gtin: identity.gtin,
+          sku: identity.sku,
+          brand: identity.brand,
         });
 
         if (outcome === "inserted") productsImported += 1;
         else productsUpdated += 1;
+
+        await deduplicateImportedProduct(store, importSourceId, identity, publishedProductCandidates);
       }
 
       hasMore = page.hasMore;

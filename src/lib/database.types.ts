@@ -470,45 +470,89 @@ export type Database = {
       }
       product_import_sources: {
         Row: {
+          brand: string | null
           created_at: string
+          dedup_confidence: number | null
+          dedup_match_product_id: string | null
+          dedup_match_source_id: string | null
+          dedup_signals: string[]
+          dedup_status: string
           external_offer_id: string | null
           external_product_id: string
+          gtin: string | null
           id: string
           import_status: string
           last_synced_at: string | null
           network_id: string
+          normalized_data: Json
+          normalized_name: string | null
           offer_id: string | null
           product_id: string | null
           raw_data: Json
+          sku: string | null
           updated_at: string
         }
         Insert: {
+          brand?: string | null
           created_at?: string
+          dedup_confidence?: number | null
+          dedup_match_product_id?: string | null
+          dedup_match_source_id?: string | null
+          dedup_signals?: string[]
+          dedup_status?: string
           external_offer_id?: string | null
           external_product_id: string
+          gtin?: string | null
           id?: string
           import_status?: string
           last_synced_at?: string | null
           network_id: string
+          normalized_data?: Json
+          normalized_name?: string | null
           offer_id?: string | null
           product_id?: string | null
           raw_data?: Json
+          sku?: string | null
           updated_at?: string
         }
         Update: {
+          brand?: string | null
           created_at?: string
+          dedup_confidence?: number | null
+          dedup_match_product_id?: string | null
+          dedup_match_source_id?: string | null
+          dedup_signals?: string[]
+          dedup_status?: string
           external_offer_id?: string | null
           external_product_id?: string
+          gtin?: string | null
           id?: string
           import_status?: string
           last_synced_at?: string | null
           network_id?: string
+          normalized_data?: Json
+          normalized_name?: string | null
           offer_id?: string | null
           product_id?: string | null
           raw_data?: Json
+          sku?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_import_sources_dedup_match_product_id_fkey"
+            columns: ["dedup_match_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_import_sources_dedup_match_source_id_fkey"
+            columns: ["dedup_match_source_id"]
+            isOneToOne: false
+            referencedRelation: "product_import_sources"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_import_sources_network_id_fkey"
             columns: ["network_id"]

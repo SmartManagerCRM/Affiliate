@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { runNetworkSync } from "./syncEngine";
 import { MockAdapter } from "./adapters/mockAdapter";
+import { normalizeNameForMatch } from "./dedup";
 import type {
+  DedupCandidate,
+  DedupResult,
+  FindDedupCandidatesParams,
   LogErrorParams,
   SyncRunCounts,
   SyncRunRecord,
@@ -11,11 +15,31 @@ import type {
 } from "./syncStore";
 import type { NormalizedProduct } from "./types";
 
+type StoredImportSource = {
+  id: string;
+  networkId: string;
+  externalProductId: string;
+  externalOfferId: string | null;
+  importStatus: string;
+  normalizedData: unknown;
+  normalizedName: string;
+  gtin: string | null;
+  sku: string | null;
+  brand: string | null;
+  dedupStatus: "unique" | "needs_review";
+  dedupConfidence: number | null;
+  dedupSignals: string[];
+  dedupMatchSourceId: string | null;
+  dedupMatchProductId: string | null;
+};
+
 /** Deterministic in-memory SyncStore — no network, no database. */
 class InMemorySyncStore implements SyncStore {
   runs = new Map<string, SyncRunRecord>();
   errors: LogErrorParams[] = [];
-  importSources = new Map<string, unknown>();
+  importSources = new Map<string, StoredImportSource>();
+  /** Injected "already-published products" pool for dedup tests. */
+  publishedProducts: DedupCandidate[] = [];
   private nextId = 1;
 
   async createRun(networkId: string): Promise<SyncRunRecord> {
@@ -67,9 +91,89 @@ class InMemorySyncStore implements SyncStore {
 
   async upsertImportSource(params: UpsertImportSourceParams): Promise<UpsertImportSourceOutcome> {
     const key = `${params.networkId}:${params.externalProductId}:${params.externalOfferId ?? ""}`;
-    const outcome: UpsertImportSourceOutcome = this.importSources.has(key) ? "updated" : "inserted";
-    this.importSources.set(key, params.rawData);
-    return outcome;
+    const existing = this.importSources.get(key);
+
+    if (existing) {
+      Object.assign(existing, {
+        normalizedData: params.normalizedData,
+        normalizedName: params.normalizedName,
+        gtin: params.gtin,
+        sku: params.sku,
+        brand: params.brand,
+      });
+      return { outcome: "updated", importSourceId: existing.id };
+    }
+
+    const id = `import-${this.nextId++}`;
+    this.importSources.set(key, {
+      id,
+      networkId: params.networkId,
+      externalProductId: params.externalProductId,
+      externalOfferId: params.externalOfferId ?? null,
+      importStatus: "pending",
+      normalizedData: params.normalizedData,
+      normalizedName: params.normalizedName,
+      gtin: params.gtin,
+      sku: params.sku,
+      brand: params.brand,
+      dedupStatus: "unique",
+      dedupConfidence: null,
+      dedupSignals: [],
+      dedupMatchSourceId: null,
+      dedupMatchProductId: null,
+    });
+    return { outcome: "inserted", importSourceId: id };
+  }
+
+  async findDedupCandidateImportSources(params: FindDedupCandidatesParams): Promise<DedupCandidate[]> {
+    const rows = Array.from(this.importSources.values()).filter(
+      (row) =>
+        row.id !== params.excludeImportSourceId &&
+        row.importStatus !== "rejected" &&
+        row.importStatus !== "failed" &&
+        ((params.gtin && row.gtin === params.gtin) ||
+          (params.sku && row.sku === params.sku) ||
+          (params.normalizedName && row.normalizedName === params.normalizedName))
+    );
+
+    return rows.map((row) => ({
+      kind: "importSource" as const,
+      id: row.id,
+      signals: {
+        gtin: row.gtin,
+        sku: row.sku,
+        brand: row.brand,
+        model: (row.normalizedData as { model?: string })?.model ?? null,
+        normalizedName: row.normalizedName,
+      },
+    }));
+  }
+
+  async findPublishedProductsForDedup(): Promise<DedupCandidate[]> {
+    return this.publishedProducts;
+  }
+
+  async updateDedupResult(importSourceId: string, result: DedupResult): Promise<void> {
+    const row = Array.from(this.importSources.values()).find((r) => r.id === importSourceId);
+    if (!row) throw new Error("Import source not found");
+
+    if (result.status === "unique") {
+      Object.assign(row, {
+        dedupStatus: "unique",
+        dedupConfidence: null,
+        dedupSignals: [],
+        dedupMatchSourceId: null,
+        dedupMatchProductId: null,
+      });
+    } else {
+      Object.assign(row, {
+        dedupStatus: "needs_review",
+        dedupConfidence: result.confidence,
+        dedupSignals: result.signals,
+        dedupMatchSourceId: result.matchImportSourceId,
+        dedupMatchProductId: result.matchProductId,
+      });
+    }
   }
 }
 
@@ -226,5 +330,141 @@ describe("runNetworkSync", () => {
     expect(outcome.productsRejected).toBe(1);
     expect(store.errors).toHaveLength(1);
     expect(store.errors[0].externalId).toBe("invalid-1");
+  });
+
+  describe("deduplication", () => {
+    it("leaves genuinely different products as unique", async () => {
+      const products = [VALID_PRODUCT_A, VALID_PRODUCT_B];
+      const adapter = new MockAdapter({ products });
+
+      await runNetworkSync(store, "network-1", adapter);
+
+      for (const row of store.importSources.values()) {
+        expect(row.dedupStatus).toBe("unique");
+      }
+    });
+
+    it("flags two candidates sharing an exact GTIN as needs_review", async () => {
+      const productWithGtin: NormalizedProduct = { ...VALID_PRODUCT_A, gtin: "0012345678905" };
+      const productSameGtinDifferentName: NormalizedProduct = {
+        ...VALID_PRODUCT_B,
+        externalProductId: "b-2",
+        gtin: "0012345678905",
+        offers: [{ ...VALID_PRODUCT_B.offers[0], externalOfferId: "b-2-offer" }],
+      };
+
+      const adapter = new MockAdapter({ products: [productWithGtin, productSameGtinDifferentName] });
+      await runNetworkSync(store, "network-1", adapter);
+
+      const rows = Array.from(store.importSources.values());
+      expect(rows.every((r) => r.dedupStatus === "needs_review")).toBe(true);
+      expect(rows.every((r) => r.dedupConfidence === 100)).toBe(true);
+      expect(rows.every((r) => r.dedupSignals.includes("gtin"))).toBe(true);
+      // Each points at the other as its match.
+      expect(rows[0].dedupMatchSourceId).toBe(rows[1].id);
+      expect(rows[1].dedupMatchSourceId).toBe(rows[0].id);
+    });
+
+    it("flags matching sku + brand as needs_review even with different names", async () => {
+      const first: NormalizedProduct = { ...VALID_PRODUCT_A, sku: "SKU-1", brand: "Acme" };
+      const second: NormalizedProduct = {
+        ...VALID_PRODUCT_B,
+        externalProductId: "b-3",
+        sku: "SKU-1",
+        brand: "Acme",
+        offers: [{ ...VALID_PRODUCT_B.offers[0], externalOfferId: "b-3-offer" }],
+      };
+
+      const adapter = new MockAdapter({ products: [first, second] });
+      await runNetworkSync(store, "network-1", adapter);
+
+      const rows = Array.from(store.importSources.values());
+      expect(rows.every((r) => r.dedupStatus === "needs_review")).toBe(true);
+      expect(rows.every((r) => r.dedupConfidence === 90)).toBe(true);
+    });
+
+    it("does not flag a sku match alone when brands differ (still below auto-merge, but scored lower)", async () => {
+      const first: NormalizedProduct = { ...VALID_PRODUCT_A, sku: "SKU-9", brand: "Acme" };
+      const second: NormalizedProduct = {
+        ...VALID_PRODUCT_B,
+        externalProductId: "b-4",
+        sku: "SKU-9",
+        brand: "OtherBrand",
+        offers: [{ ...VALID_PRODUCT_B.offers[0], externalOfferId: "b-4-offer" }],
+      };
+
+      const adapter = new MockAdapter({ products: [first, second] });
+      await runNetworkSync(store, "network-1", adapter);
+
+      const rows = Array.from(store.importSources.values());
+      // sku match alone (no brand agreement) still scores 70, above the review threshold.
+      expect(rows.every((r) => r.dedupStatus === "needs_review")).toBe(true);
+      expect(rows.every((r) => r.dedupConfidence === 70)).toBe(true);
+      expect(rows.every((r) => !r.dedupSignals.includes("brand"))).toBe(true);
+    });
+
+    it("never sets import_status to anything but pending as a result of dedup", async () => {
+      const productWithGtin: NormalizedProduct = { ...VALID_PRODUCT_A, gtin: "0099999999999" };
+      const duplicate: NormalizedProduct = {
+        ...VALID_PRODUCT_B,
+        externalProductId: "b-5",
+        gtin: "0099999999999",
+        offers: [{ ...VALID_PRODUCT_B.offers[0], externalOfferId: "b-5-offer" }],
+      };
+      const adapter = new MockAdapter({ products: [productWithGtin, duplicate] });
+
+      await runNetworkSync(store, "network-1", adapter);
+
+      for (const row of store.importSources.values()) {
+        expect(row.importStatus).toBe("pending");
+      }
+    });
+
+    it("flags a candidate matching an already-published product's name and brand", async () => {
+      store.publishedProducts = [
+        {
+          kind: "product",
+          id: "published-product-1",
+          signals: {
+            gtin: null,
+            sku: null,
+            brand: "acme",
+            model: null,
+            normalizedName: normalizeNameForMatch("Product A"),
+          },
+        },
+      ];
+
+      const candidate: NormalizedProduct = { ...VALID_PRODUCT_A, brand: "Acme" };
+      const adapter = new MockAdapter({ products: [candidate] });
+
+      await runNetworkSync(store, "network-1", adapter);
+
+      const rows = Array.from(store.importSources.values());
+      expect(rows).toHaveLength(1);
+      expect(rows[0].dedupStatus).toBe("needs_review");
+      expect(rows[0].dedupMatchProductId).toBe("published-product-1");
+      expect(rows[0].dedupMatchSourceId).toBeNull();
+    });
+
+    it("does not flag a name-only match against a published product below the brand tier as unrelated when brand is absent on both sides", async () => {
+      store.publishedProducts = [
+        {
+          kind: "product",
+          id: "published-product-2",
+          signals: { gtin: null, sku: null, brand: null, model: null, normalizedName: normalizeNameForMatch("Product A") },
+        },
+      ];
+
+      const candidate: NormalizedProduct = { ...VALID_PRODUCT_A }; // no brand set
+      const adapter = new MockAdapter({ products: [candidate] });
+
+      await runNetworkSync(store, "network-1", adapter);
+
+      const rows = Array.from(store.importSources.values());
+      // Exact normalized-name match alone (no brand on either side) still scores 45, at the review threshold.
+      expect(rows[0].dedupStatus).toBe("needs_review");
+      expect(rows[0].dedupConfidence).toBe(45);
+    });
   });
 });

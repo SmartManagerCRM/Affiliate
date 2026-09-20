@@ -124,6 +124,32 @@ describe("normalizeFeedRow", () => {
     expect(product.images).toEqual([]);
   });
 
+  it("maps gtin/ean/upc alias columns to gtin", () => {
+    expect(normalizeFeedRow({ id: "1", name: "A", gtin: "0012345678905" }).gtin).toBe("0012345678905");
+    expect(normalizeFeedRow({ id: "2", name: "B", ean: "1234567890123" }).gtin).toBe("1234567890123");
+    expect(normalizeFeedRow({ id: "3", name: "C", upc: "123456789012" }).gtin).toBe("123456789012");
+    expect(normalizeFeedRow({ id: "4", name: "D", barcode: "999" }).gtin).toBe("999");
+  });
+
+  it("maps a sku column distinct from the external product id", () => {
+    const row = { product_id: "internal-1", sku: "SKU-XYZ", name: "Thing" };
+    const product = normalizeFeedRow(row);
+    expect(product.externalProductId).toBe("internal-1");
+    expect(product.sku).toBe("SKU-XYZ");
+  });
+
+  it("maps model / model_name alias columns", () => {
+    expect(normalizeFeedRow({ id: "1", name: "A", model: "X100" }).model).toBe("X100");
+    expect(normalizeFeedRow({ id: "2", name: "B", model_name: "Y200" }).model).toBe("Y200");
+  });
+
+  it("defaults gtin/sku/model to null when absent", () => {
+    const product = normalizeFeedRow({ id: "1", name: "A" });
+    expect(product.gtin).toBeNull();
+    expect(product.sku).toBeNull();
+    expect(product.model).toBeNull();
+  });
+
   describe("availability mapping", () => {
     it("defaults to in_stock when availability is absent", () => {
       const row = { id: "sku-8", name: "Thing" };
