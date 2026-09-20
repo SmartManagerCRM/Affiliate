@@ -470,6 +470,9 @@ export type Database = {
       }
       product_import_sources: {
         Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           brand: string | null
           classification_activity_id: string | null
           classification_attempts: number
@@ -501,10 +504,14 @@ export type Database = {
           quality_score: number
           quality_score_factors: Json
           raw_data: Json
+          rejection_reason: string | null
           sku: string | null
           updated_at: string
         }
         Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           brand?: string | null
           classification_activity_id?: string | null
           classification_attempts?: number
@@ -536,10 +543,14 @@ export type Database = {
           quality_score?: number
           quality_score_factors?: Json
           raw_data?: Json
+          rejection_reason?: string | null
           sku?: string | null
           updated_at?: string
         }
         Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           brand?: string | null
           classification_activity_id?: string | null
           classification_attempts?: number
@@ -571,10 +582,18 @@ export type Database = {
           quality_score?: number
           quality_score_factors?: Json
           raw_data?: Json
+          rejection_reason?: string | null
           sku?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_import_sources_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_import_sources_classification_activity_id_fkey"
             columns: ["classification_activity_id"]
