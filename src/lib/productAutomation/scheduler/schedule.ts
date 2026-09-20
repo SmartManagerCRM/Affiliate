@@ -4,8 +4,8 @@
  * than the configured interval (cheap and safe to over-call); this is
  * what actually enforces the admin's configured cadence, so the real
  * schedule is controlled entirely from the app at runtime, independent of
- * how often the external trigger (Vercel Cron, any other scheduler) is
- * wired up.
+ * how often the external trigger (Hostinger's hPanel Cron Jobs, a VPS
+ * crontab, any other scheduler) is wired up.
  */
 export function isSyncDue(lastCompletedAt: string | null, intervalHours: number, now: Date = new Date()): boolean {
   if (!lastCompletedAt) return true; // never completed a sync -> due

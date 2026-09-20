@@ -5,17 +5,24 @@ import { isSyncDue } from "@/lib/productAutomation/scheduler/schedule";
 import { DEFAULT_IMPORT_CONFIG, type ImportConfig } from "@/lib/productAutomation/importConfig";
 
 /**
- * Server-to-server trigger for the scheduled sync (Phase 8). Call this on
- * whatever cadence your external scheduler supports — it's safe to call
- * often (e.g. hourly): it only actually runs a sync once the admin's
- * configured interval has elapsed since the last completed one, so the
- * real schedule lives entirely in the app (Import configuration ->
- * "Sync interval"), not in this endpoint's own call frequency.
+ * Server-to-server trigger for the scheduled sync (Phase 8). Deployment is
+ * on Hostinger, which has no built-in app-level cron like Vercel Cron —
+ * schedule this via hPanel's own "Cron Jobs" feature (available on shared,
+ * cloud, and VPS plans) running a plain curl command, e.g. hourly:
  *
- * Auth: a Bearer token matching CRON_SECRET. This is the exact header
- * Vercel Cron sends automatically when CRON_SECRET is set as an env var,
- * but any external scheduler can be configured to send the same header —
- * nothing here is Vercel-specific beyond that convention.
+ *   curl -s -H "Authorization: Bearer $CRON_SECRET" \
+ *     https://your-domain.example/api/cron/sync-products
+ *
+ * On a VPS you can use a regular system crontab entry with the same
+ * command instead. Either way it's safe to call often — it only actually
+ * runs a sync once the admin's configured interval has elapsed since the
+ * last completed one (Import configuration -> "Sync interval"), so the
+ * real schedule lives entirely in the app, not in how often this endpoint
+ * gets pinged. The endpoint itself isn't tied to Hostinger or any other
+ * host — any scheduler that can send the same Authorization header works
+ * (cron-job.org, GitHub Actions on a schedule, etc.).
+ *
+ * Auth: a Bearer token matching CRON_SECRET (a server-side env var).
  *
  * Calls the exact same runScheduledSync() the admin's "Sync Now" button
  * calls — never a separate, less-careful scheduled-only implementation.
