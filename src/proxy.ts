@@ -7,10 +7,11 @@ import { REF_COOKIE_NAME, REF_COOKIE_MAX_AGE_DAYS } from "@/lib/constants";
 const REF_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/reset-password"];
 
-// Admin, the affiliate redirect, and the generated placeholder images are
-// deliberately not localized — the admin panel stays English-only by
-// design, and /go + /placeholder are technical routes with no UI text.
-const UNLOCALIZED_PREFIXES = ["/admin", "/go", "/placeholder"];
+// Admin, the affiliate redirect, the generated placeholder images, and API
+// routes are deliberately not localized — the admin panel stays
+// English-only by design, and /go + /placeholder + /api are technical
+// routes with no UI text that must never get a locale prefix.
+const UNLOCALIZED_PREFIXES = ["/admin", "/go", "/placeholder", "/api"];
 
 const intlMiddleware = createMiddleware(routing);
 

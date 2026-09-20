@@ -6,6 +6,7 @@ import { ActivityCard } from "@/components/site/ActivityCard";
 import { ProductCard } from "@/components/site/ProductCard";
 import { Disclosure } from "@/components/site/Disclosure";
 import { getActivities, getFeaturedProducts } from "@/lib/queries";
+import { localizeActivity, localizeProduct } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 
 // No per-visitor data on this page, so it can be cached and revalidated in
@@ -35,11 +36,13 @@ export default async function HomePage({
   const { locale } = await params;
   setRequestLocale(locale as Locale);
 
-  const [t, activities, featured] = await Promise.all([
+  const [t, rawActivities, rawFeatured] = await Promise.all([
     getTranslations("home"),
     getActivities(),
     getFeaturedProducts(8),
   ]);
+  const activities = rawActivities.map((a) => localizeActivity(a, locale as Locale));
+  const featured = rawFeatured.map((p) => localizeProduct(p, locale as Locale));
 
   const valuePoints = [
     { title: t("valueCuratedTitle"), body: t("valueCuratedBody") },

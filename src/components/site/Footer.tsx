@@ -1,12 +1,19 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getActivities } from "@/lib/queries";
+import { localizeActivity } from "@/lib/localize";
+import type { Locale } from "@/i18n/routing";
 import { Container } from "@/components/ui/Container";
 import { Disclosure } from "@/components/site/Disclosure";
 import { Logo } from "@/components/site/Logo";
 
 export async function Footer() {
-  const [activities, t] = await Promise.all([getActivities(), getTranslations("footer")]);
+  const [rawActivities, t, locale] = await Promise.all([
+    getActivities(),
+    getTranslations("footer"),
+    getLocale() as Promise<Locale>,
+  ]);
+  const activities = rawActivities.map((a) => localizeActivity(a, locale));
 
   return (
     <footer className="mt-24 border-t border-espresso/10 bg-beige/60">

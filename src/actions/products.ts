@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { slugify } from "@/lib/format";
+import { readTranslationsFromForm } from "@/lib/adminTranslations";
 import type { createClient } from "@/lib/supabase/server";
 
 async function resolveBrandId(
@@ -51,6 +52,13 @@ async function readBasicForm(
     featured: formData.get("featured") === "on",
     seo_title: String(formData.get("seo_title") ?? "").trim() || null,
     seo_description: String(formData.get("seo_description") ?? "").trim() || null,
+    translations: readTranslationsFromForm(formData, [
+      "name",
+      "short_description",
+      "description",
+      "seo_title",
+      "seo_description",
+    ]),
   };
 }
 

@@ -1,4 +1,5 @@
 import { Field, TextInput, TextArea, Checkbox } from "@/components/admin/FormField";
+import { TranslationFields } from "@/components/admin/TranslationFields";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import type { Activity } from "@/lib/types";
 
@@ -37,6 +38,16 @@ export function ActivityForm({
         <TextArea name="seo_description" defaultValue={activity?.seo_description ?? ""} />
       </Field>
       <Checkbox name="active" label="Active (visible on public site)" defaultChecked={activity?.active ?? true} />
+
+      <TranslationFields
+        translations={activity?.translations}
+        fields={[
+          { name: "name", label: "Name" },
+          { name: "description", label: "Description", multiline: true },
+          { name: "seo_title", label: "SEO Title" },
+          { name: "seo_description", label: "SEO Description", multiline: true },
+        ]}
+      />
 
       <div className="mt-2 flex gap-3">
         <Button type="submit">{activity ? "Save changes" : "Create activity"}</Button>

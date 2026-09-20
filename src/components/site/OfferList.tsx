@@ -4,7 +4,8 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { RawButtonLink } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { formatPrice, discountPercent } from "@/lib/format";
+import { Price } from "@/components/site/Price";
+import { discountPercent } from "@/lib/format";
 import { ANY_CURRENCY } from "@/lib/currency";
 import { useCurrency } from "@/components/site/CurrencyProvider";
 import type { OfferPublic } from "@/lib/types";
@@ -93,13 +94,18 @@ export function OfferList({ offers }: { offers: OfferPublic[] }) {
             <div className="flex items-center justify-between gap-4 sm:justify-end">
               <div className="flex flex-col items-end">
                 {offer.original_price && offer.original_price > (offer.price ?? 0) && (
-                  <span className="text-xs text-espresso/40 line-through">
-                    {formatPrice(offer.original_price, offer.currency ?? "USD")}
-                  </span>
+                  <Price
+                    amount={offer.original_price}
+                    currency={offer.currency ?? "USD"}
+                    compact
+                    className="text-xs text-espresso/40 line-through"
+                  />
                 )}
-                <span className="font-serif-display text-xl font-semibold text-espresso">
-                  {formatPrice(offer.price ?? 0, offer.currency ?? "USD")}
-                </span>
+                <Price
+                  amount={offer.price ?? 0}
+                  currency={offer.currency ?? "USD"}
+                  className="font-serif-display text-xl font-semibold text-espresso"
+                />
               </div>
               <RawButtonLink href={`/go/${offer.id}`} size="md">
                 {t("buyNow")}

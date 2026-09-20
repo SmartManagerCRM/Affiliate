@@ -1,4 +1,5 @@
 import { Field, TextInput, TextArea, Select, Checkbox } from "@/components/admin/FormField";
+import { TranslationFields } from "@/components/admin/TranslationFields";
 import { Button } from "@/components/ui/Button";
 import type { Product } from "@/lib/types";
 
@@ -66,6 +67,17 @@ export function ProductBasicsForm({
           </Field>
         </div>
       </div>
+
+      <TranslationFields
+        translations={product?.translations}
+        fields={[
+          { name: "name", label: "Product name" },
+          { name: "short_description", label: "Short description", multiline: true },
+          { name: "description", label: "Full description", multiline: true },
+          { name: "seo_title", label: "SEO title" },
+          { name: "seo_description", label: "SEO description", multiline: true },
+        ]}
+      />
 
       <div>
         <Button type="submit">{product ? "Save changes" : "Create product"}</Button>

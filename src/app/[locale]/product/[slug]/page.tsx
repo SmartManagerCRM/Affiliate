@@ -9,9 +9,10 @@ import { OfferList } from "@/components/site/OfferList";
 import { Disclosure } from "@/components/site/Disclosure";
 import { ProductCard } from "@/components/site/ProductCard";
 import { getProductBySlug, getProducts } from "@/lib/queries";
+import { localizeCategory, localizeProduct } from "@/lib/localize";
 import { placeholderImage } from "@/lib/image";
-import { formatPrice } from "@/lib/format";
 import { SITE_URL } from "@/lib/constants";
+import { Price } from "@/components/site/Price";
 import type { Locale } from "@/i18n/routing";
 
 // No per-visitor data on this page, so it can be cached and revalidated in
@@ -24,8 +25,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const product = await getProductBySlug(slug);
-  if (!product) return {};
+  const rawProduct = await getProductBySlug(slug);
+  if (!rawProduct) return {};
+  const product = localizeProduct(rawProduct, locale as Locale);
 
   const t = await getTranslations({ locale, namespace: "product" });
   const title = product.seo_title || product.name;
@@ -59,8 +61,12 @@ export default async function ProductPage({
     getTranslations("product"),
     getTranslations("productCard"),
   ]);
-  const product = await getProductBySlug(slug);
-  if (!product) notFound();
+  const rawProduct = await getProductBySlug(slug);
+  if (!rawProduct) notFound();
+  const product = {
+    ...localizeProduct(rawProduct, locale as Locale),
+    categories: rawProduct.categories.map((c) => localizeCategory(c, locale as Locale)),
+  };
 
   const images =
     product.images.length > 0
@@ -81,7 +87,10 @@ export default async function ProductPage({
 
   const relatedActivitySlug = product.categories[0]?.activity_id;
   const related = relatedActivitySlug
-    ? (await getProducts({ sort: "featured" })).filter((p) => p.id !== product.id).slice(0, 4)
+    ? (await getProducts({ sort: "featured" }))
+        .filter((p) => p.id !== product.id)
+        .slice(0, 4)
+        .map((p) => localizeProduct(p, locale as Locale))
     : [];
 
   const cheapest = product.offers.length
@@ -154,9 +163,11 @@ export default async function ProductPage({
           {cheapest && (
             <p className="mt-5 text-sm text-espresso/50">
               {t("offersFrom", { count: product.offers.length })}{" "}
-              <span className="font-semibold text-espresso">
-                {formatPrice(cheapest.price ?? 0, cheapest.currency ?? "USD")}
-              </span>
+              <Price
+                amount={cheapest.price ?? 0}
+                currency={cheapest.currency ?? "USD"}
+                className="font-semibold text-espresso"
+              />
             </p>
           )}
 

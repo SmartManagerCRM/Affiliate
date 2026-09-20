@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { slugify } from "@/lib/format";
+import { readTranslationsFromForm } from "@/lib/adminTranslations";
 
 function readCategoryForm(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -15,6 +16,7 @@ function readCategoryForm(formData: FormData) {
     description: String(formData.get("description") ?? "").trim() || null,
     sort_order: Number(formData.get("sort_order") ?? 0),
     active: formData.get("active") === "on",
+    translations: readTranslationsFromForm(formData, ["name", "description"]),
   };
 }
 

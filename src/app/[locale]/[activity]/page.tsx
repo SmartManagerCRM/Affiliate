@@ -15,6 +15,7 @@ import {
   getProducts,
   getRetailersForProducts,
 } from "@/lib/queries";
+import { localizeActivity, localizeCategory, localizeProduct } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import type { SortOption } from "@/lib/types";
 
@@ -24,8 +25,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string; activity: string }>;
 }): Promise<Metadata> {
   const { locale, activity: slug } = await params;
-  const activity = await getActivityBySlug(slug);
-  if (!activity) return {};
+  const rawActivity = await getActivityBySlug(slug);
+  if (!rawActivity) return {};
+  const activity = localizeActivity(rawActivity, locale as Locale);
 
   const t = await getTranslations({ locale, namespace: "activity" });
   const title = activity.seo_title || t("essentials", { name: activity.name });
@@ -52,16 +54,17 @@ export default async function ActivityPage({
 
   const t = await getTranslations("activity");
   const sp = await searchParams;
-  const activity = await getActivityBySlug(activitySlug);
-  if (!activity) notFound();
+  const rawActivity = await getActivityBySlug(activitySlug);
+  if (!rawActivity) notFound();
+  const activity = localizeActivity(rawActivity, locale as Locale);
 
   const categorySlug = typeof sp.category === "string" ? sp.category : undefined;
   const sort = (typeof sp.sort === "string" ? sp.sort : "featured") as SortOption;
 
-  const [categories, products, brands] = await Promise.all([
-    getCategoriesForActivity(activity.id),
+  const [rawCategories, rawProducts, brands] = await Promise.all([
+    getCategoriesForActivity(rawActivity.id),
     getProducts({
-      activitySlug: activity.slug,
+      activitySlug: rawActivity.slug,
       categorySlug,
       brandSlug: typeof sp.brand === "string" ? sp.brand : undefined,
       retailerSlug: typeof sp.retailer === "string" ? sp.retailer : undefined,
@@ -71,8 +74,10 @@ export default async function ActivityPage({
       priceMax: sp.priceMax ? Number(sp.priceMax) : undefined,
       sort,
     }),
-    getBrandsForActivity(activity.slug),
+    getBrandsForActivity(rawActivity.slug),
   ]);
+  const categories = rawCategories.map((c) => localizeCategory(c, locale as Locale));
+  const products = rawProducts.map((p) => localizeProduct(p, locale as Locale));
 
   const retailers = await getRetailersForProducts(products.map((p) => p.id));
   const countries = Array.from(

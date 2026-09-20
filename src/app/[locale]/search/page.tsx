@@ -4,6 +4,7 @@ import { Container } from "@/components/ui/Container";
 import { SearchBox } from "@/components/site/SearchBox";
 import { ProductCard } from "@/components/site/ProductCard";
 import { searchProducts } from "@/lib/queries";
+import { localizeProduct } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 
 export async function generateMetadata({
@@ -34,7 +35,9 @@ export default async function SearchPage({
   const t = await getTranslations("search");
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
-  const results = query.length > 0 ? await searchProducts(query) : [];
+  const results = query.length > 0
+    ? (await searchProducts(query)).map((p) => localizeProduct(p, locale as Locale))
+    : [];
 
   return (
     <Container className="py-10 sm:py-14">

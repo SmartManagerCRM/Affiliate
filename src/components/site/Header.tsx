@@ -1,5 +1,8 @@
+import { getLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getActivities } from "@/lib/queries";
+import { localizeActivity } from "@/lib/localize";
+import type { Locale } from "@/i18n/routing";
 import { Container } from "@/components/ui/Container";
 import { Logo } from "@/components/site/Logo";
 import { MobileMenu } from "@/components/site/MobileMenu";
@@ -8,7 +11,8 @@ import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
 import { CurrencySwitcher } from "@/components/site/CurrencySwitcher";
 
 export async function Header() {
-  const activities = await getActivities();
+  const locale = (await getLocale()) as Locale;
+  const activities = (await getActivities()).map((a) => localizeActivity(a, locale));
 
   return (
     <header className="sticky top-0 z-40 border-b border-espresso/10 bg-cream/90 backdrop-blur-md">

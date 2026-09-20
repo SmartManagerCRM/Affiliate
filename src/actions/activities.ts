@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { slugify } from "@/lib/format";
+import { readTranslationsFromForm } from "@/lib/adminTranslations";
 
 function readActivityForm(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -17,6 +18,12 @@ function readActivityForm(formData: FormData) {
     active: formData.get("active") === "on",
     seo_title: String(formData.get("seo_title") ?? "").trim() || null,
     seo_description: String(formData.get("seo_description") ?? "").trim() || null,
+    translations: readTranslationsFromForm(formData, [
+      "name",
+      "description",
+      "seo_title",
+      "seo_description",
+    ]),
   };
 }
 

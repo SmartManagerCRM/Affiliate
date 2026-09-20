@@ -3,8 +3,8 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink, RawButtonLink } from "@/components/ui/Button";
 import { Link } from "@/i18n/navigation";
+import { Price } from "@/components/site/Price";
 import { placeholderImage } from "@/lib/image";
-import { formatPrice } from "@/lib/format";
 import type { ProductCardData } from "@/lib/types";
 
 export function ProductCard({ product }: { product: ProductCardData }) {
@@ -58,9 +58,12 @@ export function ProductCard({ product }: { product: ProductCardData }) {
                 <span className="text-[11px] uppercase tracking-wide text-espresso/40">
                   {t("from")}
                 </span>
-                <span className="font-serif-display text-xl font-semibold text-espresso">
-                  {formatPrice(cheapest.price ?? 0, cheapest.currency ?? "USD")}
-                </span>
+                <Price
+                  amount={cheapest.price ?? 0}
+                  currency={cheapest.currency ?? "USD"}
+                  compact
+                  className="font-serif-display text-xl font-semibold text-espresso"
+                />
               </>
             ) : (
               <span className="text-sm text-espresso/40">{t("comingSoon")}</span>

@@ -1,4 +1,5 @@
 import { Field, TextInput, TextArea, Select, Checkbox } from "@/components/admin/FormField";
+import { TranslationFields } from "@/components/admin/TranslationFields";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import type { Activity, Category } from "@/lib/types";
 
@@ -40,6 +41,14 @@ export function CategoryForm({
         <TextInput type="number" name="sort_order" defaultValue={category?.sort_order ?? 0} />
       </Field>
       <Checkbox name="active" label="Active (visible on public site)" defaultChecked={category?.active ?? true} />
+
+      <TranslationFields
+        translations={category?.translations}
+        fields={[
+          { name: "name", label: "Name" },
+          { name: "description", label: "Description", multiline: true },
+        ]}
+      />
 
       <div className="mt-2 flex gap-3">
         <Button type="submit">{category ? "Save changes" : "Create category"}</Button>

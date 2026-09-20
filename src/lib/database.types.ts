@@ -27,6 +27,7 @@ export type Database = {
           seo_title: string | null
           slug: string
           sort_order: number
+          translations: Json
           updated_at: string
         }
         Insert: {
@@ -41,6 +42,7 @@ export type Database = {
           seo_title?: string | null
           slug: string
           sort_order?: number
+          translations?: Json
           updated_at?: string
         }
         Update: {
@@ -55,6 +57,7 @@ export type Database = {
           seo_title?: string | null
           slug?: string
           sort_order?: number
+          translations?: Json
           updated_at?: string
         }
         Relationships: []
@@ -206,6 +209,7 @@ export type Database = {
           name: string
           slug: string
           sort_order: number
+          translations: Json
           updated_at: string
         }
         Insert: {
@@ -217,6 +221,7 @@ export type Database = {
           name: string
           slug: string
           sort_order?: number
+          translations?: Json
           updated_at?: string
         }
         Update: {
@@ -228,6 +233,7 @@ export type Database = {
           name?: string
           slug?: string
           sort_order?: number
+          translations?: Json
           updated_at?: string
         }
         Relationships: [
@@ -431,6 +437,7 @@ export type Database = {
           specifications: Json
           status: string
           tags: string[]
+          translations: Json
           updated_at: string
         }
         Insert: {
@@ -449,6 +456,7 @@ export type Database = {
           specifications?: Json
           status?: string
           tags?: string[]
+          translations?: Json
           updated_at?: string
         }
         Update: {
@@ -467,6 +475,7 @@ export type Database = {
           specifications?: Json
           status?: string
           tags?: string[]
+          translations?: Json
           updated_at?: string
         }
         Relationships: [
@@ -619,7 +628,7 @@ export type Database = {
       }
     }
     Functions: {
-      is_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
       record_offer_click: {
         Args: {
           p_country?: string
@@ -653,8 +662,15 @@ export type Database = {
           specifications: Json
           status: string
           tags: string[]
+          translations: Json
           updated_at: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
     }
     Enums: {
@@ -747,6 +763,40 @@ export type TablesUpdate<
       }
       ? U
       : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never) = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never) = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
