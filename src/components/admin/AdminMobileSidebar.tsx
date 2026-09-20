@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { Menu, X, ExternalLink } from "lucide-react";
 import { SidebarNav } from "@/components/admin/Sidebar";
 
 export function AdminMobileSidebar() {
@@ -11,24 +14,43 @@ export function AdminMobileSidebar() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Open menu"
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white lg:hidden"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-espresso/12 text-espresso/60 lg:hidden"
       >
-        <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-          <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
+        <Menu className="h-4.5 w-4.5" strokeWidth={1.75} />
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-64 overflow-y-auto bg-[#241209] p-4">
-            <div className="mb-6 flex items-center justify-between px-2">
-              <span className="font-serif-display text-lg font-semibold text-white">Admin</span>
-              <button onClick={() => setOpen(false)} className="text-white/60">
-                ✕
+          <div className="absolute left-0 top-0 flex h-full w-72 flex-col overflow-y-auto bg-[#241209] p-4">
+            <div className="mb-6 flex items-center justify-between px-2 pt-1">
+              <Link href="/admin" onClick={() => setOpen(false)} className="flex items-center gap-2.5">
+                <Image src="/logo-icon.png" alt="" width={30} height={30} />
+                <span className="flex items-baseline gap-1">
+                  <span className="font-serif-display text-base font-semibold text-white">Selected</span>
+                  <span className="font-serif-display text-base italic text-accent-gold">Items</span>
+                </span>
+              </Link>
+              <button onClick={() => setOpen(false)} aria-label="Close menu" className="text-white/60">
+                <X className="h-4.5 w-4.5" strokeWidth={1.75} />
               </button>
             </div>
             <SidebarNav onNavigate={() => setOpen(false)} />
+            <div className="mt-auto rounded-2xl bg-white/5 p-4">
+              <p className="font-serif-display text-sm font-medium leading-snug text-white">
+                Smart products.
+                <br />
+                Better businesses.
+              </p>
+              <Link
+                href="/"
+                target="_blank"
+                className="mt-3 flex items-center justify-center gap-1.5 rounded-full bg-accent-gold px-3 py-2 text-xs font-semibold text-espresso hover:bg-accent-gold/90"
+              >
+                View Public Site
+                <ExternalLink className="h-3 w-3" strokeWidth={2.5} />
+              </Link>
+            </div>
           </div>
         </div>
       )}
