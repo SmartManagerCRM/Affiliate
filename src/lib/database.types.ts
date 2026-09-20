@@ -258,6 +258,7 @@ export type Database = {
           currency: string
           id: string
           last_updated: string
+          managed_by_automation: boolean
           original_price: number | null
           price: number
           priority: number
@@ -276,6 +277,7 @@ export type Database = {
           currency: string
           id?: string
           last_updated?: string
+          managed_by_automation?: boolean
           original_price?: number | null
           price: number
           priority?: number
@@ -294,6 +296,7 @@ export type Database = {
           currency?: string
           id?: string
           last_updated?: string
+          managed_by_automation?: boolean
           original_price?: number | null
           price?: number
           priority?: number

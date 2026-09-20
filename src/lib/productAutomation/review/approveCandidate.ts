@@ -1,7 +1,8 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
-import { slugify } from "@/lib/format";
 import { mergeProductFields, resolveTargetProductId } from "./mergeProduct";
+import { buildOfferUpdate, type OfferSyncFields } from "./offerSync";
+import { resolveBrandId, resolveRetailerId, generateUniqueSlug, syncProductImages } from "./productWriters";
 import type { NormalizedProduct } from "../types";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
@@ -10,58 +11,18 @@ export type ApproveCandidateResult =
   | { status: "approved"; productId: string; offerId: string }
   | { status: "error"; message: string };
 
-/** Same find-or-create-by-slug pattern as products.ts's resolveBrandId. */
-async function resolveBrandId(supabase: SupabaseAdmin, brandName: string | null | undefined): Promise<string | null> {
-  const name = brandName?.trim();
-  if (!name) return null;
-  const slug = slugify(name);
-
-  const { data: existingBrand } = await supabase.from("brands").select("id").eq("slug", slug).maybeSingle();
-  if (existingBrand) return existingBrand.id;
-
-  const { data: created, error } = await supabase.from("brands").insert({ name, slug }).select("id").single();
-  if (error || !created) return null;
-  return created.id;
-}
-
-async function resolveRetailerId(supabase: SupabaseAdmin, retailerName: string): Promise<string | null> {
-  const name = retailerName.trim();
-  if (!name) return null;
-  const slug = slugify(name);
-
-  const { data: existingRetailer } = await supabase.from("retailers").select("id").eq("slug", slug).maybeSingle();
-  if (existingRetailer) return existingRetailer.id;
-
-  const { data: created, error } = await supabase.from("retailers").insert({ name, slug }).select("id").single();
-  if (error || !created) return null;
-  return created.id;
-}
-
-async function generateUniqueSlug(supabase: SupabaseAdmin, name: string): Promise<string> {
-  const base = slugify(name) || "product";
-  let candidate = base;
-  let suffix = 2;
-
-  // Bounded rather than infinite — a name colliding 50 times over isn't
-  // realistic, but an unbounded loop here would be a real risk given
-  // bulk-approve can call this many times in a row for similar names.
-  for (let attempt = 0; attempt < 50; attempt++) {
-    const { data: existing } = await supabase.from("products").select("id").eq("slug", candidate).maybeSingle();
-    if (!existing) return candidate;
-    candidate = `${base}-${suffix++}`;
-  }
-  return `${base}-${Date.now()}`;
-}
-
 /**
  * Approves one staged candidate: creates a new product/offer, or — when
  * dedup linked this candidate to a real existing product (directly, or
  * via a sibling candidate that was itself approved first) — updates that
  * product instead of duplicating it. Product-field updates are
- * conservative gap-fills only (mergeProductFields); this network's own
- * offer is always created/refreshed, since it's authoritative for itself
- * regardless of what other fields do. Never touches approval_status of
- * any row but the one being approved (the sibling lookup is read-only).
+ * conservative gap-fills only (mergeProductFields). The offer is created
+ * or refreshed from the candidate's data UNLESS a human has already taken
+ * manual control of it (offers.managed_by_automation = false, set by
+ * actions/offers.ts's updateOffer) — approval still links the candidate to
+ * it, but never overwrites fields a human is now responsible for. Never
+ * touches approval_status of any row but the one being approved (the
+ * sibling lookup is read-only).
  */
 export async function approveCandidate(
   supabase: SupabaseAdmin,
@@ -173,17 +134,7 @@ export async function approveCandidate(
     productId = created.id;
   }
 
-  // Images: add any not already present — never remove existing ones.
-  if (product.images.length > 0) {
-    const { data: existingImages } = await supabase.from("product_images").select("url").eq("product_id", productId);
-    const existingUrls = new Set((existingImages ?? []).map((i) => i.url));
-    const newImages = product.images.filter((url) => !existingUrls.has(url));
-    if (newImages.length > 0) {
-      await supabase
-        .from("product_images")
-        .insert(newImages.map((url, i) => ({ product_id: productId, url, sort_order: existingUrls.size + i })));
-    }
-  }
+  await syncProductImages(supabase, productId, product.images);
 
   // Activities/categories: add-only — never remove an existing link that
   // may have come from a human, or from another approved candidate.
@@ -215,43 +166,47 @@ export async function approveCandidate(
     }
   }
 
-  // This candidate's own offer (its network + retailer) is authoritative
-  // for itself, independent of the conservative product-field merge above
-  // — always create or refresh it.
+  const offerSyncFields: OfferSyncFields = {
+    price: primaryOffer.price,
+    originalPrice: primaryOffer.originalPrice ?? null,
+    currency: primaryOffer.currency,
+    affiliateUrl: primaryOffer.affiliateUrl,
+    availability: primaryOffer.availability,
+    country: primaryOffer.country ?? null,
+    shippingInfo: primaryOffer.shippingInfo ?? null,
+    commissionRate: primaryOffer.commissionRate ?? null,
+  };
+
   const { data: existingOffer } = await supabase
     .from("offers")
-    .select("id")
+    .select("id, managed_by_automation")
     .eq("product_id", productId)
     .eq("retailer_id", retailerId)
     .maybeSingle();
 
-  const offerFields = {
-    product_id: productId,
-    retailer_id: retailerId,
-    affiliate_network_id: candidate.network_id,
-    price: primaryOffer.price,
-    original_price: primaryOffer.originalPrice ?? null,
-    currency: primaryOffer.currency,
-    affiliate_url: primaryOffer.affiliateUrl,
-    availability: primaryOffer.availability,
-    country: primaryOffer.country ?? null,
-    shipping_info: primaryOffer.shippingInfo ?? null,
-    commission_rate: primaryOffer.commissionRate ?? null,
-    active: true,
-  };
-
   let offerId: string;
   if (existingOffer) {
-    const { error: offerUpdateError } = await supabase
-      .from("offers")
-      .update({ ...offerFields, last_updated: new Date().toISOString() })
-      .eq("id", existingOffer.id);
-    if (offerUpdateError) return { status: "error", message: offerUpdateError.message };
     offerId = existingOffer.id;
+    // A human took manual control of this specific offer (actions/offers.ts
+    // updateOffer) — approval still links the candidate to it below, but
+    // never overwrites the fields they're now responsible for.
+    if (existingOffer.managed_by_automation) {
+      const { error: offerUpdateError } = await supabase
+        .from("offers")
+        .update(buildOfferUpdate(offerSyncFields))
+        .eq("id", offerId);
+      if (offerUpdateError) return { status: "error", message: offerUpdateError.message };
+    }
   } else {
     const { data: createdOffer, error: offerCreateError } = await supabase
       .from("offers")
-      .insert(offerFields)
+      .insert({
+        product_id: productId,
+        retailer_id: retailerId,
+        affiliate_network_id: candidate.network_id,
+        ...buildOfferUpdate(offerSyncFields),
+        managed_by_automation: true,
+      })
       .select("id")
       .single();
     if (offerCreateError || !createdOffer) {

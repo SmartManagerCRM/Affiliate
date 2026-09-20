@@ -1,4 +1,4 @@
-import { Radar, RefreshCw, History, Settings2, Sparkles, Gauge } from "lucide-react";
+import { Radar, RefreshCw, History, Settings2, Sparkles, Gauge, RotateCw } from "lucide-react";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -6,6 +6,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { Field, TextInput, Checkbox } from "@/components/admin/FormField";
 import { SyncAllButton } from "@/components/admin/SyncAllButton";
 import { ClassifyPendingButton } from "@/components/admin/ClassifyPendingButton";
+import { AutoUpdateButton } from "@/components/admin/AutoUpdateButton";
 import { getNetworkStatuses } from "@/lib/productAutomation/registry";
 import { isClassificationConfigured } from "@/lib/productAutomation/classification/anthropicClient";
 import { updateImportConfig } from "@/actions/productAutomation";
@@ -68,6 +69,14 @@ export default async function ProductAutomationPage({
       .select("id", { count: "exact", head: true })
       .eq("opportunity_signal->>status", "cheaper"),
   ]);
+
+  const [{ count: approvedCount }, { count: automationManagedCount }, { count: manuallyControlledCount }, { count: outOfStockCount }] =
+    await Promise.all([
+      supabase.from("product_import_sources").select("id", { count: "exact", head: true }).eq("approval_status", "approved"),
+      supabase.from("offers").select("id", { count: "exact", head: true }).eq("managed_by_automation", true),
+      supabase.from("offers").select("id", { count: "exact", head: true }).eq("managed_by_automation", false),
+      supabase.from("offers").select("id", { count: "exact", head: true }).eq("availability", "out_of_stock"),
+    ]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -194,6 +203,32 @@ export default async function ProductAutomationPage({
           against an already-published, dedup-matched product; nothing here estimates conversions
           or sales performance.
         </p>
+      </section>
+
+      {/* Automatic Updates */}
+      <section className="rounded-2xl border border-espresso/10 bg-white p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-2.5">
+          <RotateCw className="h-4.5 w-4.5 text-espresso/45" strokeWidth={1.75} />
+          <h2 className="font-serif-display text-lg font-semibold text-espresso">Automatic Updates</h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Stat label="Approved products" value={approvedCount ?? 0} />
+          <Stat label="Auto-managed offers" value={automationManagedCount ?? 0} />
+          <Stat label="Manually controlled" value={manuallyControlledCount ?? 0} />
+          <Stat label="Out of stock" value={outOfStockCount ?? 0} />
+        </div>
+
+        <p className="mt-3 text-xs text-espresso/40">
+          Runs automatically after every sync: refreshes price/availability/image for already-approved
+          products straight from the feed. The moment an offer is edited by hand, it&apos;s marked
+          &quot;manually controlled&quot; and automation never overwrites it again. An offer that goes
+          out of stock is marked unavailable, never deleted — its click history is always preserved.
+        </p>
+
+        <div className="mt-6">
+          <AutoUpdateButton />
+        </div>
       </section>
 
       {/* Import configuration */}

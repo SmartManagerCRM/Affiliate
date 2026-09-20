@@ -10,7 +10,13 @@ import { runNetworkSync } from "@/lib/productAutomation/syncEngine";
 import { isClassificationConfigured, AnthropicClassificationClient } from "@/lib/productAutomation/classification/anthropicClient";
 import { SupabaseClassificationStore } from "@/lib/productAutomation/classification/supabaseClassificationStore";
 import { classifyPendingProducts, describeClassificationRun } from "@/lib/productAutomation/classification/classifyEngine";
+import { autoUpdateApprovedProducts } from "@/lib/productAutomation/update/autoUpdateEngine";
 import type { ImportConfig } from "@/lib/productAutomation/importConfig";
+
+function describeAutoUpdateRun(summary: Awaited<ReturnType<typeof autoUpdateApprovedProducts>>): string {
+  if (summary.candidatesChecked === 0) return "Auto-update: no approved products to check.";
+  return `Auto-update: ${summary.offersUpdated} offer(s) refreshed, ${summary.productsUpdated} product(s) updated, ${summary.offersSkippedManual} skipped (manually controlled).`;
+}
 
 export type SyncAllResult = {
   ranNetworks: number;
@@ -80,13 +86,36 @@ export async function syncAllNetworks(): Promise<SyncAllResult> {
     results.push("Classification: ANTHROPIC_API_KEY is not configured — skipped.");
   }
 
+  // Propagate fresh feed data to already-approved products/offers — no
+  // external dependency, always runs.
+  const autoUpdateSummary = await autoUpdateApprovedProducts(supabase);
+  results.push(describeAutoUpdateRun(autoUpdateSummary));
+
   revalidatePath("/admin/product-automation");
   revalidatePath("/admin/product-automation/history");
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/offers");
 
   return {
     ranNetworks,
     message: results.join(" "),
   };
+}
+
+export type AutoUpdateResult = {
+  message: string;
+};
+
+/** Standalone auto-update pass, independent of "Sync Now" — useful for propagating a manual candidate edit without a full re-sync. */
+export async function autoUpdateApprovedProductsAction(): Promise<AutoUpdateResult> {
+  const { supabase } = await requireAdmin();
+  const summary = await autoUpdateApprovedProducts(supabase);
+
+  revalidatePath("/admin/product-automation");
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/offers");
+
+  return { message: describeAutoUpdateRun(summary) };
 }
 
 export type ClassifyPendingResult = {

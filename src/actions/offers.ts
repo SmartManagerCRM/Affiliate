@@ -68,7 +68,10 @@ export async function updateOffer(id: string, productId: string, formData: FormD
 
   const { error } = await supabase
     .from("offers")
-    .update({ ...values, last_updated: new Date().toISOString() })
+    // A human is editing this offer directly — it's no longer safe for the
+    // automation pipeline (Phase 7) to silently overwrite these fields on
+    // a future sync, so this takes it out of automatic management.
+    .update({ ...values, last_updated: new Date().toISOString(), managed_by_automation: false })
     .eq("id", id);
   if (error) redirect(`/admin/products/${productId}?error=${encodeURIComponent(error.message)}`);
 
