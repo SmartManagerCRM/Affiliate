@@ -1,7 +1,7 @@
 import { clsx } from "clsx";
 import NextLink from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { Link } from "@/i18n/navigation";
+import { Link as LocaleLink } from "@/i18n/navigation";
 
 type Variant = "primary" | "secondary" | "ghost" | "outline";
 type Size = "sm" | "md" | "lg";
@@ -49,31 +49,12 @@ export function Button({
   );
 }
 
-export function ButtonLink({
-  href,
-  variant = "primary",
-  size = "md",
-  className,
-  children,
-  ...props
-}: CommonProps & { href: string; target?: string; rel?: string }) {
-  return (
-    <Link
-      href={href}
-      className={clsx(base, variants[variant], sizes[size], className)}
-      {...props}
-    >
-      {children}
-    </Link>
-  );
-}
-
 /**
- * For links to routes that live outside src/app/[locale] (/go, /placeholder,
- * /admin) — these must never get a locale prefix, so they use next/link
- * directly instead of the locale-aware ButtonLink above.
+ * Plain next/link — safe everywhere, including the admin panel and /go
+ * links, since it never assumes it's rendering inside the localized
+ * src/app/[locale] route tree (next-intl's Link throws if it isn't).
  */
-export function RawButtonLink({
+export function ButtonLink({
   href,
   variant = "primary",
   size = "md",
@@ -89,5 +70,29 @@ export function RawButtonLink({
     >
       {children}
     </NextLink>
+  );
+}
+
+/**
+ * Locale-aware variant for internal public-site navigation only (product
+ * listing/detail links, search, filters) — adds the current locale's URL
+ * prefix. Never use this outside src/app/[locale] (admin, /go, /placeholder).
+ */
+export function LocaleButtonLink({
+  href,
+  variant = "primary",
+  size = "md",
+  className,
+  children,
+  ...props
+}: CommonProps & { href: string; target?: string; rel?: string }) {
+  return (
+    <LocaleLink
+      href={href}
+      className={clsx(base, variants[variant], sizes[size], className)}
+      {...props}
+    >
+      {children}
+    </LocaleLink>
   );
 }

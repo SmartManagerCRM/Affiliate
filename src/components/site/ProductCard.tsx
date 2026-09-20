@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/Badge";
-import { ButtonLink, RawButtonLink } from "@/components/ui/Button";
+import { ButtonLink, LocaleButtonLink } from "@/components/ui/Button";
 import { Link } from "@/i18n/navigation";
 import { Price } from "@/components/site/Price";
 import { placeholderImage } from "@/lib/image";
@@ -71,22 +71,22 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           </div>
 
           {cheapest && offers.length === 1 ? (
-            <RawButtonLink
+            <ButtonLink
               href={`/go/${cheapest.id}`}
               size="sm"
               className="shrink-0"
             >
               {t("buyNow")}
-            </RawButtonLink>
+            </ButtonLink>
           ) : (
-            <ButtonLink
+            <LocaleButtonLink
               href={`/product/${product.slug}`}
               size="sm"
               variant="outline"
               className="shrink-0"
             >
               {offers.length > 1 ? t("compare", { count: offers.length }) : t("view")}
-            </ButtonLink>
+            </LocaleButtonLink>
           )}
         </div>
       </div>

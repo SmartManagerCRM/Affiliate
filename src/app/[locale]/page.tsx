@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container } from "@/components/ui/Container";
-import { ButtonLink } from "@/components/ui/Button";
+import { LocaleButtonLink } from "@/components/ui/Button";
 import { ActivityCard } from "@/components/site/ActivityCard";
 import { ProductCard } from "@/components/site/ProductCard";
 import { Disclosure } from "@/components/site/Disclosure";
@@ -77,12 +77,12 @@ export default async function HomePage({
               {t("heroSubtitle")}
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <ButtonLink href="#activities" size="lg">
+              <LocaleButtonLink href="#activities" size="lg">
                 {t("exploreProducts")}
-              </ButtonLink>
-              <ButtonLink href="/search" size="lg" variant="outline">
+              </LocaleButtonLink>
+              <LocaleButtonLink href="/search" size="lg" variant="outline">
                 {t("searchProducts")}
-              </ButtonLink>
+              </LocaleButtonLink>
             </div>
           </div>
         </Container>

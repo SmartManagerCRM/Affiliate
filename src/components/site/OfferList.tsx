@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { RawButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/site/Price";
 import { discountPercent } from "@/lib/format";
@@ -107,9 +107,9 @@ export function OfferList({ offers }: { offers: OfferPublic[] }) {
                   className="font-serif-display text-xl font-semibold text-espresso"
                 />
               </div>
-              <RawButtonLink href={`/go/${offer.id}`} size="md">
+              <ButtonLink href={`/go/${offer.id}`} size="md">
                 {t("buyNow")}
-              </RawButtonLink>
+              </ButtonLink>
             </div>
           </div>
         );

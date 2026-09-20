@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { buildQueryString } from "@/lib/url";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button, LocaleButtonLink } from "@/components/ui/Button";
 
 type Option = { value: string; label: string };
 
@@ -233,8 +233,8 @@ function FilterGroup({
 export function ClearFiltersLink({ basePath }: { basePath: string }) {
   const t = useTranslations("filtersBar");
   return (
-    <ButtonLink href={basePath} variant="ghost" size="sm">
+    <LocaleButtonLink href={basePath} variant="ghost" size="sm">
       {t("clearFilters")}
-    </ButtonLink>
+    </LocaleButtonLink>
   );
 }
