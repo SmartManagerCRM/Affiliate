@@ -82,6 +82,8 @@ export type FindDedupCandidatesParams = {
   normalizedName: string;
 };
 
+export type DedupStatus = "unique" | "needs_review";
+
 export type DedupResult =
   | { status: "unique" }
   | {
@@ -91,6 +93,33 @@ export type DedupResult =
       matchImportSourceId: string | null;
       matchProductId: string | null;
     };
+
+/** A real price comparison against an actual matched product's actual offer —
+ * never a fabricated conversion rate/EPC/performance estimate. "insufficient_data"
+ * (with a reason) is the honest result whenever there's no real basis to compare. */
+export type OpportunitySignal =
+  | { status: "insufficient_data"; reason: string }
+  | { status: "cheaper"; percentBelowExisting: number; existingPrice: number; candidatePrice: number; currency: string }
+  | { status: "not_cheaper"; existingPrice: number; candidatePrice: number; currency: string };
+
+export type QualityScoreFactors = {
+  hasImage: boolean;
+  hasDescription: boolean;
+  hasBrand: boolean;
+  hasIdentifier: boolean;
+  isDedupClean: boolean;
+};
+
+export type ScoringResult = {
+  qualityScore: number;
+  qualityFactors: QualityScoreFactors;
+  opportunitySignal: OpportunitySignal;
+};
+
+export type ProductOffer = {
+  price: number;
+  currency: string;
+};
 
 export interface SyncStore {
   createRun(networkId: string): Promise<SyncRunRecord>;
@@ -103,4 +132,7 @@ export interface SyncStore {
   /** Already-published products to compare against. Real products currently have no gtin/sku, so only name+brand signals are populated. */
   findPublishedProductsForDedup(): Promise<DedupCandidate[]>;
   updateDedupResult(importSourceId: string, result: DedupResult): Promise<void>;
+  /** Active offers for an already-published product — used only for real opportunity-signal price comparisons. */
+  findOffersForProduct(productId: string): Promise<ProductOffer[]>;
+  updateScoringResult(importSourceId: string, result: ScoringResult): Promise<void>;
 }

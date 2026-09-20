@@ -2,11 +2,16 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { runNetworkSync } from "./syncEngine";
 import { MockAdapter } from "./adapters/mockAdapter";
 import { normalizeNameForMatch } from "./dedup";
+import { QUALITY_SCORE_WEIGHTS } from "./scoring/qualityScore";
 import type {
   DedupCandidate,
   DedupResult,
   FindDedupCandidatesParams,
   LogErrorParams,
+  OpportunitySignal,
+  ProductOffer,
+  QualityScoreFactors,
+  ScoringResult,
   SyncRunCounts,
   SyncRunRecord,
   SyncStore,
@@ -31,6 +36,9 @@ type StoredImportSource = {
   dedupSignals: string[];
   dedupMatchSourceId: string | null;
   dedupMatchProductId: string | null;
+  qualityScore: number;
+  qualityScoreFactors: QualityScoreFactors | null;
+  opportunitySignal: OpportunitySignal | null;
 };
 
 /** Deterministic in-memory SyncStore — no network, no database. */
@@ -40,6 +48,8 @@ class InMemorySyncStore implements SyncStore {
   importSources = new Map<string, StoredImportSource>();
   /** Injected "already-published products" pool for dedup tests. */
   publishedProducts: DedupCandidate[] = [];
+  /** Injected real offers for a given (already-published) product id, for opportunity-signal tests. */
+  offersByProductId = new Map<string, ProductOffer[]>();
   private nextId = 1;
 
   async createRun(networkId: string): Promise<SyncRunRecord> {
@@ -121,6 +131,9 @@ class InMemorySyncStore implements SyncStore {
       dedupSignals: [],
       dedupMatchSourceId: null,
       dedupMatchProductId: null,
+      qualityScore: 0,
+      qualityScoreFactors: null,
+      opportunitySignal: null,
     });
     return { outcome: "inserted", importSourceId: id };
   }
@@ -173,7 +186,29 @@ class InMemorySyncStore implements SyncStore {
         dedupMatchSourceId: result.matchImportSourceId,
         dedupMatchProductId: result.matchProductId,
       });
+
+      // Mirrors SupabaseSyncStore: a row already scored "unique" before a
+      // later match retroactively flips it to needs_review must lose the
+      // dedup-clean bonus, or its quality_score goes stale.
+      if (row.qualityScoreFactors?.isDedupClean) {
+        row.qualityScore = Math.max(0, row.qualityScore - QUALITY_SCORE_WEIGHTS.dedupClean);
+        row.qualityScoreFactors = { ...row.qualityScoreFactors, isDedupClean: false };
+      }
     }
+  }
+
+  async findOffersForProduct(productId: string): Promise<ProductOffer[]> {
+    return this.offersByProductId.get(productId) ?? [];
+  }
+
+  async updateScoringResult(importSourceId: string, result: ScoringResult): Promise<void> {
+    const row = Array.from(this.importSources.values()).find((r) => r.id === importSourceId);
+    if (!row) throw new Error("Import source not found");
+    Object.assign(row, {
+      qualityScore: result.qualityScore,
+      qualityScoreFactors: result.qualityFactors,
+      opportunitySignal: result.opportunitySignal,
+    });
   }
 }
 
@@ -465,6 +500,185 @@ describe("runNetworkSync", () => {
       // Exact normalized-name match alone (no brand on either side) still scores 45, at the review threshold.
       expect(rows[0].dedupStatus).toBe("needs_review");
       expect(rows[0].dedupConfidence).toBe(45);
+    });
+  });
+
+  describe("scoring", () => {
+    const RICH_PRODUCT: NormalizedProduct = {
+      ...VALID_PRODUCT_A,
+      brand: "Acme",
+      gtin: "0012345678905",
+      description: "A".repeat(50),
+      images: ["https://example.test/img.jpg"],
+    };
+
+    it("gives a full-completeness, unique candidate the maximum score", async () => {
+      const adapter = new MockAdapter({ products: [RICH_PRODUCT] });
+      await runNetworkSync(store, "network-1", adapter);
+
+      const row = Array.from(store.importSources.values())[0];
+      expect(row.qualityScore).toBe(100);
+      expect(row.qualityScoreFactors).toEqual({
+        hasImage: true,
+        hasDescription: true,
+        hasBrand: true,
+        hasIdentifier: true,
+        isDedupClean: true,
+      });
+    });
+
+    it("scores a minimal (but valid) candidate on dedup cleanliness alone", async () => {
+      const adapter = new MockAdapter({ products: [VALID_PRODUCT_A] }); // no brand/gtin/sku/description/images
+      await runNetworkSync(store, "network-1", adapter);
+
+      const row = Array.from(store.importSources.values())[0];
+      expect(row.qualityScore).toBe(30); // dedupClean weight only
+      expect(row.qualityScoreFactors).toMatchObject({
+        hasImage: false,
+        hasDescription: false,
+        hasBrand: false,
+        hasIdentifier: false,
+        isDedupClean: true,
+      });
+    });
+
+    it("a needs_review dedup match lowers the score by losing the dedup-clean component", async () => {
+      const a: NormalizedProduct = { ...RICH_PRODUCT, gtin: "0055555555555" };
+      const b: NormalizedProduct = {
+        ...RICH_PRODUCT,
+        externalProductId: "b-dup",
+        gtin: "0055555555555",
+        offers: [{ ...RICH_PRODUCT.offers[0], externalOfferId: "b-dup-offer" }],
+      };
+      const adapter = new MockAdapter({ products: [a, b] });
+      await runNetworkSync(store, "network-1", adapter);
+
+      for (const row of store.importSources.values()) {
+        expect(row.dedupStatus).toBe("needs_review");
+        expect(row.qualityScore).toBe(70); // 100 minus the 30-point dedup-clean component
+      }
+    });
+
+    it("opportunity_signal is insufficient_data when dedup found no match", async () => {
+      const adapter = new MockAdapter({ products: [RICH_PRODUCT] });
+      await runNetworkSync(store, "network-1", adapter);
+
+      const row = Array.from(store.importSources.values())[0];
+      expect(row.opportunitySignal).toMatchObject({ status: "insufficient_data" });
+    });
+
+    it("opportunity_signal is insufficient_data when the dedup match is another candidate, not a real published product", async () => {
+      const a: NormalizedProduct = { ...RICH_PRODUCT, gtin: "0077777777777" };
+      const b: NormalizedProduct = {
+        ...RICH_PRODUCT,
+        externalProductId: "b-dup2",
+        gtin: "0077777777777",
+        offers: [{ ...RICH_PRODUCT.offers[0], externalOfferId: "b-dup2-offer" }],
+      };
+      const adapter = new MockAdapter({ products: [a, b] });
+      await runNetworkSync(store, "network-1", adapter);
+
+      for (const row of store.importSources.values()) {
+        expect(row.opportunitySignal).toMatchObject({ status: "insufficient_data" });
+      }
+    });
+
+    it("opportunity_signal is insufficient_data when the matched product has no real offers to compare", async () => {
+      store.publishedProducts = [
+        {
+          kind: "product",
+          id: "published-empty",
+          signals: { gtin: "0088888888888", sku: null, brand: null, model: null, normalizedName: "x" },
+        },
+      ];
+      const candidate: NormalizedProduct = { ...RICH_PRODUCT, gtin: "0088888888888" };
+      const adapter = new MockAdapter({ products: [candidate] });
+
+      await runNetworkSync(store, "network-1", adapter);
+
+      const row = Array.from(store.importSources.values())[0];
+      expect(row.dedupMatchProductId).toBe("published-empty");
+      expect(row.opportunitySignal).toMatchObject({ status: "insufficient_data" });
+    });
+
+    it("opportunity_signal reports 'cheaper' with a real percentage when the candidate genuinely undercuts the matched product", async () => {
+      store.publishedProducts = [
+        {
+          kind: "product",
+          id: "published-priced",
+          signals: { gtin: "0099999999998", sku: null, brand: null, model: null, normalizedName: "x" },
+        },
+      ];
+      store.offersByProductId.set("published-priced", [{ price: 20, currency: "USD" }]);
+
+      const candidate: NormalizedProduct = {
+        ...RICH_PRODUCT,
+        gtin: "0099999999998",
+        offers: [{ ...RICH_PRODUCT.offers[0], price: 15, currency: "USD" }],
+      };
+      const adapter = new MockAdapter({ products: [candidate] });
+
+      await runNetworkSync(store, "network-1", adapter);
+
+      const row = Array.from(store.importSources.values())[0];
+      expect(row.opportunitySignal).toEqual({
+        status: "cheaper",
+        percentBelowExisting: 25,
+        existingPrice: 20,
+        candidatePrice: 15,
+        currency: "USD",
+      });
+    });
+
+    it("opportunity_signal reports 'not_cheaper' truthfully when the candidate is not actually cheaper", async () => {
+      store.publishedProducts = [
+        {
+          kind: "product",
+          id: "published-priced-2",
+          signals: { gtin: "0011111111112", sku: null, brand: null, model: null, normalizedName: "x" },
+        },
+      ];
+      store.offersByProductId.set("published-priced-2", [{ price: 10, currency: "USD" }]);
+
+      const candidate: NormalizedProduct = {
+        ...RICH_PRODUCT,
+        gtin: "0011111111112",
+        offers: [{ ...RICH_PRODUCT.offers[0], price: 12, currency: "USD" }],
+      };
+      const adapter = new MockAdapter({ products: [candidate] });
+
+      await runNetworkSync(store, "network-1", adapter);
+
+      const row = Array.from(store.importSources.values())[0];
+      expect(row.opportunitySignal).toEqual({
+        status: "not_cheaper",
+        existingPrice: 10,
+        candidatePrice: 12,
+        currency: "USD",
+      });
+    });
+
+    it("never fabricates a cross-currency comparison — insufficient_data instead", async () => {
+      store.publishedProducts = [
+        {
+          kind: "product",
+          id: "published-eur",
+          signals: { gtin: "0022222222223", sku: null, brand: null, model: null, normalizedName: "x" },
+        },
+      ];
+      store.offersByProductId.set("published-eur", [{ price: 20, currency: "EUR" }]);
+
+      const candidate: NormalizedProduct = {
+        ...RICH_PRODUCT,
+        gtin: "0022222222223",
+        offers: [{ ...RICH_PRODUCT.offers[0], price: 5, currency: "USD" }],
+      };
+      const adapter = new MockAdapter({ products: [candidate] });
+
+      await runNetworkSync(store, "network-1", adapter);
+
+      const row = Array.from(store.importSources.values())[0];
+      expect(row.opportunitySignal).toMatchObject({ status: "insufficient_data" });
     });
   });
 });

@@ -1,4 +1,4 @@
-import type { SyncStore, DedupCandidate } from "./syncStore";
+import type { SyncStore, DedupCandidate, DedupResult } from "./syncStore";
 import type { IdentitySignals, MatchCandidate } from "./dedup";
 import { pickBestMatch, MIN_REVIEW_CONFIDENCE } from "./dedup";
 
@@ -27,6 +27,10 @@ export async function loadPublishedProductCandidates(store: SyncStore): Promise<
  * candidate too — see below). Resolving a "needs_review" match (merge,
  * ignore, or treat as distinct) is a human decision made in a later
  * phase's review UI.
+ *
+ * Returns the result it wrote for THIS candidate (not the paired row, when
+ * one was also updated) so the caller can feed it straight into scoring
+ * without a redundant read.
  */
 export async function deduplicateImportedProduct(
   store: SyncStore,
@@ -35,7 +39,7 @@ export async function deduplicateImportedProduct(
   /** Published-product candidates, fetched once per sync run by the caller
    * (not once per product) — the published catalog doesn't change mid-run. */
   publishedProductCandidates: MatchCandidate<DedupCandidate>[]
-): Promise<void> {
+): Promise<DedupResult> {
   const importCandidates = await store.findDedupCandidateImportSources({
     excludeImportSourceId: importSourceId,
     gtin: identity.gtin,
@@ -51,13 +55,14 @@ export async function deduplicateImportedProduct(
   const best = pickBestMatch(identity, candidates);
 
   if (best && best.confidence >= MIN_REVIEW_CONFIDENCE) {
-    await store.updateDedupResult(importSourceId, {
+    const result: DedupResult = {
       status: "needs_review",
       confidence: best.confidence,
       signals: best.signals,
       matchImportSourceId: best.ref.kind === "importSource" ? best.ref.id : null,
       matchProductId: best.ref.kind === "product" ? best.ref.id : null,
-    });
+    };
+    await store.updateDedupResult(importSourceId, result);
 
     // The matched row was scored and staged earlier in this same run (or an
     // earlier run), before this candidate existed to be compared against —
@@ -73,7 +78,11 @@ export async function deduplicateImportedProduct(
         matchProductId: null,
       });
     }
-  } else {
-    await store.updateDedupResult(importSourceId, { status: "unique" });
+
+    return result;
   }
+
+  const result: DedupResult = { status: "unique" };
+  await store.updateDedupResult(importSourceId, result);
+  return result;
 }

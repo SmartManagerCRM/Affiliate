@@ -496,7 +496,10 @@ export type Database = {
           normalized_data: Json
           normalized_name: string | null
           offer_id: string | null
+          opportunity_signal: Json
           product_id: string | null
+          quality_score: number
+          quality_score_factors: Json
           raw_data: Json
           sku: string | null
           updated_at: string
@@ -528,7 +531,10 @@ export type Database = {
           normalized_data?: Json
           normalized_name?: string | null
           offer_id?: string | null
+          opportunity_signal?: Json
           product_id?: string | null
+          quality_score?: number
+          quality_score_factors?: Json
           raw_data?: Json
           sku?: string | null
           updated_at?: string
@@ -560,7 +566,10 @@ export type Database = {
           normalized_data?: Json
           normalized_name?: string | null
           offer_id?: string | null
+          opportunity_signal?: Json
           product_id?: string | null
+          quality_score?: number
+          quality_score_factors?: Json
           raw_data?: Json
           sku?: string | null
           updated_at?: string

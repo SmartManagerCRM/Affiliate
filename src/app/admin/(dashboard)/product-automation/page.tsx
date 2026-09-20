@@ -1,4 +1,4 @@
-import { Radar, RefreshCw, History, Settings2, Sparkles } from "lucide-react";
+import { Radar, RefreshCw, History, Settings2, Sparkles, Gauge } from "lucide-react";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -59,6 +59,15 @@ export default async function ProductAutomationPage({
     ...DEFAULT_IMPORT_CONFIG,
     ...((configRow?.value as Partial<ImportConfig>) ?? {}),
   };
+
+  const [{ count: totalCandidates }, { count: meetsThresholdCount }, { count: cheaperCount }] = await Promise.all([
+    supabase.from("product_import_sources").select("id", { count: "exact", head: true }),
+    supabase.from("product_import_sources").select("id", { count: "exact", head: true }).gte("quality_score", config.minScore),
+    supabase
+      .from("product_import_sources")
+      .select("id", { count: "exact", head: true })
+      .eq("opportunity_signal->>status", "cheaper"),
+  ]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -163,6 +172,28 @@ export default async function ProductAutomationPage({
         <div className="mt-6">
           <ClassifyPendingButton />
         </div>
+      </section>
+
+      {/* Product Scoring */}
+      <section className="rounded-2xl border border-espresso/10 bg-white p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-2.5">
+          <Gauge className="h-4.5 w-4.5 text-espresso/45" strokeWidth={1.75} />
+          <h2 className="font-serif-display text-lg font-semibold text-espresso">Product Scoring</h2>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <Stat label="Staged candidates" value={totalCandidates ?? 0} />
+          <Stat label={`Meet score threshold (≥${config.minScore})`} value={meetsThresholdCount ?? 0} />
+          <Stat label="Cheaper than existing" value={cheaperCount ?? 0} />
+        </div>
+
+        <p className="mt-3 text-xs text-espresso/40">
+          The quality score (0–100) reflects real data completeness — image, description, brand,
+          identifier, and dedup cleanliness — computed for every candidate automatically at import
+          time. &quot;Cheaper than existing&quot; only counts candidates with a real price comparison
+          against an already-published, dedup-matched product; nothing here estimates conversions
+          or sales performance.
+        </p>
       </section>
 
       {/* Import configuration */}

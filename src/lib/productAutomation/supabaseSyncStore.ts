@@ -5,6 +5,9 @@ import type {
   DedupResult,
   FindDedupCandidatesParams,
   LogErrorParams,
+  ProductOffer,
+  QualityScoreFactors,
+  ScoringResult,
   SyncRunCounts,
   SyncRunRecord,
   SyncStore,
@@ -12,6 +15,7 @@ import type {
   UpsertImportSourceParams,
 } from "./syncStore";
 import { normalizeNameForMatch } from "./dedup";
+import { QUALITY_SCORE_WEIGHTS } from "./scoring/qualityScore";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
 
@@ -247,24 +251,72 @@ export class SupabaseSyncStore implements SyncStore {
   }
 
   async updateDedupResult(importSourceId: string, result: DedupResult): Promise<void> {
-    const update =
-      result.status === "unique"
-        ? {
-            dedup_status: "unique",
-            dedup_confidence: null,
-            dedup_signals: [],
-            dedup_match_source_id: null,
-            dedup_match_product_id: null,
-          }
-        : {
-            dedup_status: "needs_review",
-            dedup_confidence: result.confidence,
-            dedup_signals: result.signals,
-            dedup_match_source_id: result.matchImportSourceId,
-            dedup_match_product_id: result.matchProductId,
-          };
+    if (result.status === "unique") {
+      const { error } = await this.supabase
+        .from("product_import_sources")
+        .update({
+          dedup_status: "unique",
+          dedup_confidence: null,
+          dedup_signals: [],
+          dedup_match_source_id: null,
+          dedup_match_product_id: null,
+        })
+        .eq("id", importSourceId);
+      if (error) throw new Error(error.message);
+      return;
+    }
 
-    const { error } = await this.supabase.from("product_import_sources").update(update).eq("id", importSourceId);
+    const update: Record<string, unknown> = {
+      dedup_status: "needs_review",
+      dedup_confidence: result.confidence,
+      dedup_signals: result.signals,
+      dedup_match_source_id: result.matchImportSourceId,
+      dedup_match_product_id: result.matchProductId,
+    };
+
+    // This row may be the earlier half of a mutually-matched pair: it was
+    // already normalized+scored as "unique" (quality_score included the
+    // dedup-clean bonus) before the later half arrived and revealed the
+    // match. Keep quality_score honest by removing that bonus now rather
+    // than leaving a needs_review row with a stale, too-high score.
+    const { data: current, error: readError } = await this.supabase
+      .from("product_import_sources")
+      .select("quality_score, quality_score_factors")
+      .eq("id", importSourceId)
+      .single();
+    if (readError) throw new Error(readError.message);
+
+    const factors = (current?.quality_score_factors ?? {}) as Partial<QualityScoreFactors>;
+    if (factors.isDedupClean) {
+      update.quality_score = Math.max(0, (current?.quality_score ?? 0) - QUALITY_SCORE_WEIGHTS.dedupClean);
+      update.quality_score_factors = { ...factors, isDedupClean: false };
+    }
+
+    const { error } = await this.supabase.from("product_import_sources").update(update as never).eq("id", importSourceId);
+    if (error) throw new Error(error.message);
+  }
+
+  async findOffersForProduct(productId: string): Promise<ProductOffer[]> {
+    const { data, error } = await this.supabase
+      .from("offers")
+      .select("price, currency")
+      .eq("product_id", productId)
+      .eq("active", true);
+
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row) => ({ price: row.price, currency: row.currency }));
+  }
+
+  async updateScoringResult(importSourceId: string, result: ScoringResult): Promise<void> {
+    const { error } = await this.supabase
+      .from("product_import_sources")
+      .update({
+        quality_score: result.qualityScore,
+        quality_score_factors: result.qualityFactors as never,
+        opportunity_signal: result.opportunitySignal as never,
+      })
+      .eq("id", importSourceId);
+
     if (error) throw new Error(error.message);
   }
 

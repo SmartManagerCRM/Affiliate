@@ -3,6 +3,7 @@ import type { SyncStore } from "./syncStore";
 import { validateNormalizedProduct } from "./validation";
 import { extractIdentitySignals } from "./dedup";
 import { deduplicateImportedProduct, loadPublishedProductCandidates } from "./dedupEngine";
+import { scoreImportedProduct } from "./scoringEngine";
 
 export type SyncRunOutcome = {
   runId: string;
@@ -32,6 +33,11 @@ const MAX_PAGES = 500; // safety bound against a misbehaving adapter looping for
  *      and already-published products; a confident match sets
  *      dedup_status = "needs_review" for a human to resolve later — never
  *      an automatic merge
+ *   5. score: a deterministic 0-100 data-completeness score, plus an
+ *      opportunity signal that is a real price comparison against a
+ *      dedup-matched product's actual offers (or "insufficient_data" when
+ *      there's no real basis to compare) — never a fabricated conversion
+ *      rate or performance estimate
  *
  * This only ever stages pending import rows — it never writes to the real
  * products/offers tables. That happens later, once a human (or, after
@@ -97,7 +103,8 @@ export async function runNetworkSync(
         if (outcome === "inserted") productsImported += 1;
         else productsUpdated += 1;
 
-        await deduplicateImportedProduct(store, importSourceId, identity, publishedProductCandidates);
+        const dedupResult = await deduplicateImportedProduct(store, importSourceId, identity, publishedProductCandidates);
+        await scoreImportedProduct(store, importSourceId, product, dedupResult);
       }
 
       hasMore = page.hasMore;
