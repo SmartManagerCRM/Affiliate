@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getActivities } from "@/lib/queries";
 import { Container } from "@/components/ui/Container";
 import { Disclosure } from "@/components/site/Disclosure";
+import { Logo } from "@/components/site/Logo";
 import { SITE_TAGLINE } from "@/lib/constants";
 
 export async function Footer() {
@@ -12,14 +13,7 @@ export async function Footer() {
       <Container className="py-14">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
-            <Link href="/" className="flex items-baseline gap-1">
-              <span className="font-serif-display text-xl font-semibold text-espresso">
-                Selected
-              </span>
-              <span className="font-serif-display text-xl italic text-accent-gold">
-                Items
-              </span>
-            </Link>
+            <Logo iconSize={32} />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-espresso/60">
               {SITE_TAGLINE}
             </p>

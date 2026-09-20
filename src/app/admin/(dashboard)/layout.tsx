@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { SidebarNav } from "@/components/admin/Sidebar";
@@ -17,9 +18,12 @@ export default async function AdminDashboardLayout({
   return (
     <div className="flex min-h-screen bg-[#F5F1EA]">
       <aside className="hidden w-64 shrink-0 flex-col bg-[#241209] p-4 lg:flex">
-        <Link href="/admin" className="mb-8 flex items-baseline gap-1 px-2">
-          <span className="font-serif-display text-lg font-semibold text-white">Selected</span>
-          <span className="font-serif-display text-lg italic text-accent-gold">Items</span>
+        <Link href="/admin" className="mb-8 flex items-center gap-2 px-2">
+          <Image src="/logo-icon.png" alt="" width={28} height={28} />
+          <span className="flex items-baseline gap-1">
+            <span className="font-serif-display text-lg font-semibold text-white">Selected</span>
+            <span className="font-serif-display text-lg italic text-accent-gold">Items</span>
+          </span>
         </Link>
         <SidebarNav />
         <div className="mt-auto pt-6">
