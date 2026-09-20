@@ -3,108 +3,41 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
-import { NETWORK_REGISTRY, isNetworkConfigured } from "@/lib/productAutomation/registry";
-import { getAdapterForNetwork } from "@/lib/productAutomation/adapterFactory";
-import { SupabaseSyncStore } from "@/lib/productAutomation/supabaseSyncStore";
-import { runNetworkSync } from "@/lib/productAutomation/syncEngine";
+import { runScheduledSync, type SyncAllResult } from "@/lib/productAutomation/scheduler/runScheduledSync";
 import { isClassificationConfigured, AnthropicClassificationClient } from "@/lib/productAutomation/classification/anthropicClient";
 import { SupabaseClassificationStore } from "@/lib/productAutomation/classification/supabaseClassificationStore";
 import { classifyPendingProducts, describeClassificationRun } from "@/lib/productAutomation/classification/classifyEngine";
 import { autoUpdateApprovedProducts } from "@/lib/productAutomation/update/autoUpdateEngine";
 import type { ImportConfig } from "@/lib/productAutomation/importConfig";
 
-function describeAutoUpdateRun(summary: Awaited<ReturnType<typeof autoUpdateApprovedProducts>>): string {
-  if (summary.candidatesChecked === 0) return "Auto-update: no approved products to check.";
-  return `Auto-update: ${summary.offersUpdated} offer(s) refreshed, ${summary.productsUpdated} product(s) updated, ${summary.offersSkippedManual} skipped (manually controlled).`;
-}
-
-export type SyncAllResult = {
-  ranNetworks: number;
-  message: string;
-};
+export type { SyncAllResult };
 
 /**
- * The one entry point for triggering a synchronization by hand. Phase 8's
- * scheduler will call this same runNetworkSync() path per connected
- * network — this action never gets a separate, less-careful code path.
- *
- * Only networks that are both (a) configured (real credentials present)
- * and (b) have a real adapter implemented get synced. CJ/ClickBank have
- * neither yet, so they're always skipped honestly rather than faked.
+ * The one entry point for triggering a synchronization by hand. Calls the
+ * exact same runScheduledSync() the cron endpoint (/api/cron/sync-products)
+ * calls — there is no separate, less-careful "Sync Now" implementation.
  */
 export async function syncAllNetworks(): Promise<SyncAllResult> {
-  const { supabase } = await requireAdmin();
+  const { supabase, admin } = await requireAdmin();
 
-  const connected = NETWORK_REGISTRY.filter(isNetworkConfigured);
-
-  if (connected.length === 0) {
-    return {
-      ranNetworks: 0,
-      message: "No affiliate networks are connected yet — nothing to synchronize.",
-    };
-  }
-
-  const store = new SupabaseSyncStore(supabase);
-  const results: string[] = [];
-  let ranNetworks = 0;
-
-  for (const entry of connected) {
-    const adapter = getAdapterForNetwork(entry.key);
-    if (!adapter) {
-      results.push(`${entry.label}: connected, but no adapter is implemented yet.`);
-      continue;
-    }
-
-    const { data: networkRow } = await supabase
-      .from("affiliate_networks")
-      .select("id")
-      .ilike("name", entry.label)
-      .maybeSingle();
-
-    if (!networkRow) {
-      results.push(`${entry.label}: connected, but no matching affiliate_networks row was found.`);
-      continue;
-    }
-
-    const outcome = await runNetworkSync(store, networkRow.id, adapter);
-    ranNetworks += 1;
-    results.push(
-      outcome.status === "completed"
-        ? `${entry.label}: imported ${outcome.productsImported}, updated ${outcome.productsUpdated}, rejected ${outcome.productsRejected} (of ${outcome.productsFound} found).`
-        : `${entry.label}: sync failed — ${outcome.errorMessage}`
-    );
-  }
-
-  // Continue the pipeline into classification, but only ever honestly —
-  // skipped entirely (not faked) when no AI key is configured.
-  if (isClassificationConfigured()) {
-    const classificationStore = new SupabaseClassificationStore(supabase);
-    const classificationClient = new AnthropicClassificationClient();
-    const summary = await classifyPendingProducts(classificationStore, classificationClient);
-    results.push(describeClassificationRun(summary));
-  } else {
-    results.push("Classification: ANTHROPIC_API_KEY is not configured — skipped.");
-  }
-
-  // Propagate fresh feed data to already-approved products/offers — no
-  // external dependency, always runs.
-  const autoUpdateSummary = await autoUpdateApprovedProducts(supabase);
-  results.push(describeAutoUpdateRun(autoUpdateSummary));
+  const result = await runScheduledSync(supabase, { lockedBy: `admin:${admin.email}` });
 
   revalidatePath("/admin/product-automation");
   revalidatePath("/admin/product-automation/history");
   revalidatePath("/admin/products");
   revalidatePath("/admin/offers");
 
-  return {
-    ranNetworks,
-    message: results.join(" "),
-  };
+  return result;
 }
 
 export type AutoUpdateResult = {
   message: string;
 };
+
+function describeAutoUpdateRun(summary: Awaited<ReturnType<typeof autoUpdateApprovedProducts>>): string {
+  if (summary.candidatesChecked === 0) return "Auto-update: no approved products to check.";
+  return `Auto-update: ${summary.offersUpdated} offer(s) refreshed, ${summary.productsUpdated} product(s) updated, ${summary.offersSkippedManual} skipped (manually controlled).`;
+}
 
 /** Standalone auto-update pass, independent of "Sync Now" — useful for propagating a manual candidate edit without a full re-sync. */
 export async function autoUpdateApprovedProductsAction(): Promise<AutoUpdateResult> {
@@ -153,6 +86,7 @@ export async function updateImportConfig(formData: FormData) {
     // Auto-publish stays an explicit, deliberate opt-in every time this
     // form is saved — it's never left on implicitly.
     autoPublish: formData.get("auto_publish") === "on",
+    syncIntervalHours: Math.max(1, Number(formData.get("sync_interval_hours") ?? 6) || 6),
   };
 
   const { error } = await supabase

@@ -648,6 +648,24 @@ export type Database = {
           },
         ]
       }
+      product_sync_lock: {
+        Row: {
+          id: boolean
+          locked_at: string | null
+          locked_by: string | null
+        }
+        Insert: {
+          id?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
+        }
+        Update: {
+          id?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
+        }
+        Relationships: []
+      }
       product_sync_runs: {
         Row: {
           completed_at: string | null

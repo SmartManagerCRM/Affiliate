@@ -9,6 +9,7 @@ import { ClassifyPendingButton } from "@/components/admin/ClassifyPendingButton"
 import { AutoUpdateButton } from "@/components/admin/AutoUpdateButton";
 import { getNetworkStatuses } from "@/lib/productAutomation/registry";
 import { isClassificationConfigured } from "@/lib/productAutomation/classification/anthropicClient";
+import { isLockActive } from "@/lib/productAutomation/scheduler/syncLock";
 import { updateImportConfig } from "@/actions/productAutomation";
 import { DEFAULT_IMPORT_CONFIG, type ImportConfig } from "@/lib/productAutomation/importConfig";
 
@@ -25,6 +26,7 @@ export default async function ProductAutomationPage({
     { data: activities },
     { data: categories },
     { data: configRow },
+    { data: lockRow },
     { count: pendingCount },
     { count: classifiedCount },
     { count: classificationFailedCount },
@@ -40,6 +42,7 @@ export default async function ProductAutomationPage({
     supabase.from("activities").select("id, name").order("sort_order"),
     supabase.from("categories").select("id, name, activity_id").order("sort_order"),
     supabase.from("site_settings").select("value").eq("key", "product_automation_config").maybeSingle(),
+    supabase.from("product_sync_lock").select("locked_at, locked_by").eq("id", true).maybeSingle(),
     supabase
       .from("product_import_sources")
       .select("id", { count: "exact", head: true })
@@ -53,6 +56,8 @@ export default async function ProductAutomationPage({
       .select("id", { count: "exact", head: true })
       .eq("classification_status", "classification_failed"),
   ]);
+
+  const isLocked = isLockActive(lockRow?.locked_at ?? null);
 
   const networks = getNetworkStatuses();
   const classificationConfigured = isClassificationConfigured();
@@ -118,10 +123,17 @@ export default async function ProductAutomationPage({
 
       {/* Synchronization */}
       <section className="rounded-2xl border border-espresso/10 bg-white p-5 sm:p-6">
-        <div className="mb-4 flex items-center gap-2.5">
-          <RefreshCw className="h-4.5 w-4.5 text-espresso/45" strokeWidth={1.75} />
-          <h2 className="font-serif-display text-lg font-semibold text-espresso">Synchronization</h2>
+        <div className="mb-4 flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <RefreshCw className="h-4.5 w-4.5 text-espresso/45" strokeWidth={1.75} />
+            <h2 className="font-serif-display text-lg font-semibold text-espresso">Synchronization</h2>
+          </div>
+          {isLocked && <Badge tone="gold">Sync in progress ({lockRow?.locked_by ?? "unknown"})</Badge>}
         </div>
+        <p className="-mt-2 mb-4 text-xs text-espresso/40">
+          Runs every {config.syncIntervalHours}h via the scheduled sync endpoint, or on demand below. A
+          lock prevents a scheduled run and a manual sync from ever running at the same time.
+        </p>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           <Stat
@@ -289,6 +301,13 @@ export default async function ProductAutomationPage({
 
           <Field label="Minimum product score" hint="0–100. Candidates below this are held for review, never auto-published.">
             <TextInput type="number" name="min_score" min={0} max={100} defaultValue={config.minScore} />
+          </Field>
+
+          <Field
+            label="Sync interval (hours)"
+            hint="How often the scheduled sync endpoint actually runs a sync. It can be pinged more often than this — it only syncs once this many hours have passed since the last completed run."
+          >
+            <TextInput type="number" name="sync_interval_hours" min={1} defaultValue={config.syncIntervalHours} />
           </Field>
 
           <Checkbox
