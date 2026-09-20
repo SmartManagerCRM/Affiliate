@@ -26,7 +26,7 @@ export function ClicksChart({ data }: { data: ClicksByDay[] }) {
 
   if (!hasClicks) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-espresso/15 text-center">
+      <div className="flex h-[218px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-espresso/15 text-center">
         <MousePointerClick className="h-7 w-7 text-espresso/25" strokeWidth={1.5} />
         <p className="text-sm font-medium text-espresso/60">No affiliate clicks yet</p>
         <p className="max-w-xs text-xs text-espresso/40">
@@ -37,7 +37,7 @@ export function ClicksChart({ data }: { data: ClicksByDay[] }) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={221}>
       <AreaChart data={data} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="clicksFill" x1="0" y1="0" x2="0" y2="1">

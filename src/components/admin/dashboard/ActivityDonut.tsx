@@ -9,7 +9,7 @@ const COLORS = ["#3E2417", "#D78B3C", "#399B55", "#B89A78", "#8C6A52", "#E3C08A"
 export function ActivityDonut({ data, total }: { data: ActivityShare[]; total: number }) {
   if (data.length === 0) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-espresso/15 text-center">
+      <div className="flex h-[218px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-espresso/15 text-center">
         <Layers className="h-7 w-7 text-espresso/25" strokeWidth={1.5} />
         <p className="text-sm font-medium text-espresso/60">No products assigned yet</p>
         <p className="max-w-xs text-xs text-espresso/40">
@@ -21,15 +21,15 @@ export function ActivityDonut({ data, total }: { data: ActivityShare[]; total: n
 
   return (
     <div className="flex flex-col items-center gap-6 sm:flex-row">
-      <div className="relative h-44 w-44 shrink-0">
+      <div className="relative h-[150px] w-[150px] shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
               dataKey="count"
               nameKey="name"
-              innerRadius={58}
-              outerRadius={80}
+              innerRadius={49}
+              outerRadius={68}
               paddingAngle={2}
               stroke="none"
             >

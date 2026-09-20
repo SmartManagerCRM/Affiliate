@@ -32,7 +32,13 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({
+  onNavigate,
+  collapsed = false,
+}: {
+  onNavigate?: () => void;
+  collapsed?: boolean;
+}) {
   const pathname = usePathname();
 
   return (
@@ -46,15 +52,17 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             key={item.href}
             href={item.href}
             onClick={onNavigate}
+            title={collapsed ? item.label : undefined}
             className={clsx(
-              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors",
+              collapsed ? "justify-center px-2.5" : "px-3",
               active
                 ? "bg-white/10 text-white ring-1 ring-inset ring-accent-gold/40"
                 : "text-white/55 hover:bg-white/5 hover:text-white/90"
             )}
           >
             <Icon className={clsx("h-4.5 w-4.5 shrink-0", active && "text-accent-gold")} strokeWidth={1.75} />
-            {item.label}
+            {!collapsed && item.label}
           </Link>
         );
       })}

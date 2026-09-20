@@ -81,12 +81,11 @@ export default async function AdminDashboardPage({
         </KpiCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <DashboardCard
           icon={MousePointerClick}
           title="Affiliate Clicks"
           subtitle="Daily affiliate clicks over the selected period"
-          className="lg:col-span-2"
         >
           <ClicksChart data={clicksByDay} />
         </DashboardCard>
