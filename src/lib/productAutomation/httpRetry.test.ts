@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { withRetry, errorForResponse, HttpStatusError, RateLimitError, HttpTimeoutError } from "./httpRetry";
+import { withRetry, errorForResponse, fetchWithTimeout, HttpStatusError, RateLimitError, HttpTimeoutError } from "./httpRetry";
 
 describe("withRetry", () => {
   it("returns the result on first success without retrying", async () => {
@@ -98,5 +98,37 @@ describe("errorForResponse", () => {
     const err = errorForResponse(response);
     expect(err).toBeInstanceOf(HttpStatusError);
     expect((err as HttpStatusError).status).toBe(503);
+  });
+});
+
+describe("fetchWithTimeout", () => {
+  it("returns the response when the call completes before the timeout", async () => {
+    const fetchImpl = vi.fn(async () => new Response("ok"));
+    const response = await fetchWithTimeout(fetchImpl, "https://example.test", {}, 1000);
+    expect(await response.text()).toBe("ok");
+  });
+
+  it("throws HttpTimeoutError when the call hangs past the timeout", async () => {
+    const fetchImpl = vi.fn((_url: string, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          const err = new Error("The operation was aborted");
+          err.name = "AbortError";
+          reject(err);
+        });
+      });
+    });
+
+    await expect(
+      fetchWithTimeout(fetchImpl as unknown as typeof fetch, "https://example.test", {}, 10)
+    ).rejects.toThrow(HttpTimeoutError);
+  });
+
+  it("propagates a non-abort error unchanged", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError("network down");
+    });
+
+    await expect(fetchWithTimeout(fetchImpl, "https://example.test", {}, 1000)).rejects.toThrow("network down");
   });
 });

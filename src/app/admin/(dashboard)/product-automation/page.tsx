@@ -1,11 +1,13 @@
-import { Radar, RefreshCw, History, Settings2 } from "lucide-react";
+import { Radar, RefreshCw, History, Settings2, Sparkles } from "lucide-react";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Field, TextInput, Checkbox } from "@/components/admin/FormField";
 import { SyncAllButton } from "@/components/admin/SyncAllButton";
+import { ClassifyPendingButton } from "@/components/admin/ClassifyPendingButton";
 import { getNetworkStatuses } from "@/lib/productAutomation/registry";
+import { isClassificationConfigured } from "@/lib/productAutomation/classification/anthropicClient";
 import { updateImportConfig } from "@/actions/productAutomation";
 import { DEFAULT_IMPORT_CONFIG, type ImportConfig } from "@/lib/productAutomation/importConfig";
 
@@ -17,26 +19,42 @@ export default async function ProductAutomationPage({
   const { saved, error } = await searchParams;
   const { supabase } = await requireAdmin();
 
-  const [{ data: lastRun }, { data: activities }, { data: categories }, { data: configRow }] =
-    await Promise.all([
-      supabase
-        .from("product_sync_runs")
-        .select(
-          "id, status, started_at, completed_at, products_found, products_imported, products_updated, products_rejected, errors_count, network:affiliate_networks(name)"
-        )
-        .order("started_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase.from("activities").select("id, name").order("sort_order"),
-      supabase.from("categories").select("id, name, activity_id").order("sort_order"),
-      supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", "product_automation_config")
-        .maybeSingle(),
-    ]);
+  const [
+    { data: lastRun },
+    { data: activities },
+    { data: categories },
+    { data: configRow },
+    { count: pendingCount },
+    { count: classifiedCount },
+    { count: classificationFailedCount },
+  ] = await Promise.all([
+    supabase
+      .from("product_sync_runs")
+      .select(
+        "id, status, started_at, completed_at, products_found, products_imported, products_updated, products_rejected, errors_count, network:affiliate_networks(name)"
+      )
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("activities").select("id, name").order("sort_order"),
+    supabase.from("categories").select("id, name, activity_id").order("sort_order"),
+    supabase.from("site_settings").select("value").eq("key", "product_automation_config").maybeSingle(),
+    supabase
+      .from("product_import_sources")
+      .select("id", { count: "exact", head: true })
+      .eq("classification_status", "pending"),
+    supabase
+      .from("product_import_sources")
+      .select("id", { count: "exact", head: true })
+      .eq("classification_status", "classified"),
+    supabase
+      .from("product_import_sources")
+      .select("id", { count: "exact", head: true })
+      .eq("classification_status", "classification_failed"),
+  ]);
 
   const networks = getNetworkStatuses();
+  const classificationConfigured = isClassificationConfigured();
   const config: ImportConfig = {
     ...DEFAULT_IMPORT_CONFIG,
     ...((configRow?.value as Partial<ImportConfig>) ?? {}),
@@ -115,6 +133,35 @@ export default async function ProductAutomationPage({
             <History className="h-4 w-4" strokeWidth={1.75} />
             View Sync History
           </ButtonLink>
+        </div>
+      </section>
+
+      {/* AI Classification */}
+      <section className="rounded-2xl border border-espresso/10 bg-white p-5 sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="h-4.5 w-4.5 text-espresso/45" strokeWidth={1.75} />
+            <h2 className="font-serif-display text-lg font-semibold text-espresso">AI Classification</h2>
+          </div>
+          <Badge tone={classificationConfigured ? "green" : "neutral"}>
+            {classificationConfigured ? "Configured" : "Not Configured"}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <Stat label="Pending" value={pendingCount ?? 0} />
+          <Stat label="Classified" value={classifiedCount ?? 0} />
+          <Stat label="Failed" value={classificationFailedCount ?? 0} />
+        </div>
+
+        <p className="mt-3 text-xs text-espresso/40">
+          Runs automatically after every sync. Set ANTHROPIC_API_KEY as a server environment
+          variable to enable it — classification only ever stages an activity/category/country
+          suggestion for review, it never publishes a product directly.
+        </p>
+
+        <div className="mt-6">
+          <ClassifyPendingButton />
         </div>
       </section>
 

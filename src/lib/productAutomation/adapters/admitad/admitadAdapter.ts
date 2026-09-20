@@ -9,7 +9,7 @@ import type {
   NormalizedProduct,
 } from "../../types";
 import { getAdmitadConfig, hasAdmitadCredentials, isAdmitadFullyConfigured, type AdmitadConfig } from "./config";
-import { withRetry, errorForResponse, HttpTimeoutError } from "./httpRetry";
+import { withRetry, errorForResponse, fetchWithTimeout } from "../../httpRetry";
 import { parseCsvFeed, normalizeFeedRow } from "./feedParser";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -21,26 +21,6 @@ export type AdmitadAdapterOptions = {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 };
-
-async function fetchWithTimeout(
-  fetchImpl: typeof fetch,
-  url: string,
-  init: RequestInit,
-  timeoutMs: number
-): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetchImpl(url, { ...init, signal: controller.signal });
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new HttpTimeoutError(`Request to ${url} timed out after ${timeoutMs}ms`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 /**
  * Admitad network adapter. Product data always comes from the publisher's

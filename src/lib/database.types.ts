@@ -471,6 +471,15 @@ export type Database = {
       product_import_sources: {
         Row: {
           brand: string | null
+          classification_activity_id: string | null
+          classification_attempts: number
+          classification_category_ids: string[]
+          classification_confidence: number | null
+          classification_countries: string[]
+          classification_error: string | null
+          classification_reason: string | null
+          classification_status: string
+          classified_at: string | null
           created_at: string
           dedup_confidence: number | null
           dedup_match_product_id: string | null
@@ -494,6 +503,15 @@ export type Database = {
         }
         Insert: {
           brand?: string | null
+          classification_activity_id?: string | null
+          classification_attempts?: number
+          classification_category_ids?: string[]
+          classification_confidence?: number | null
+          classification_countries?: string[]
+          classification_error?: string | null
+          classification_reason?: string | null
+          classification_status?: string
+          classified_at?: string | null
           created_at?: string
           dedup_confidence?: number | null
           dedup_match_product_id?: string | null
@@ -517,6 +535,15 @@ export type Database = {
         }
         Update: {
           brand?: string | null
+          classification_activity_id?: string | null
+          classification_attempts?: number
+          classification_category_ids?: string[]
+          classification_confidence?: number | null
+          classification_countries?: string[]
+          classification_error?: string | null
+          classification_reason?: string | null
+          classification_status?: string
+          classified_at?: string | null
           created_at?: string
           dedup_confidence?: number | null
           dedup_match_product_id?: string | null
@@ -539,6 +566,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_import_sources_classification_activity_id_fkey"
+            columns: ["classification_activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_import_sources_dedup_match_product_id_fkey"
             columns: ["dedup_match_product_id"]

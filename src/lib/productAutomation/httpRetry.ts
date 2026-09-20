@@ -1,7 +1,9 @@
 /**
- * Generic retry-with-backoff wrapper for the HTTP calls an adapter makes.
- * Deliberately has no Admitad-specific knowledge, so it's reusable by
- * future adapters (CJ, ClickBank, ...) too.
+ * Generic retry-with-backoff and timeout helpers for the HTTP calls an
+ * adapter or external API client makes. Deliberately has no network- or
+ * vendor-specific knowledge, so it's reusable across affiliate network
+ * adapters (Admitad, CJ, ClickBank, ...) and other external integrations
+ * (e.g. the AI classification client).
  */
 
 export class HttpTimeoutError extends Error {
@@ -88,4 +90,25 @@ export function errorForResponse(response: Response): HttpStatusError | RateLimi
     return new RateLimitError(`Rate limited (429)`, retryAfterMs);
   }
   return new HttpStatusError(`Request failed with status ${response.status}`, response.status);
+}
+
+/** Runs one fetch with an AbortController-based timeout, mapping an abort into HttpTimeoutError. */
+export async function fetchWithTimeout(
+  fetchImpl: typeof fetch,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchImpl(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new HttpTimeoutError(`Request to ${url} timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }

@@ -7,6 +7,9 @@ import { NETWORK_REGISTRY, isNetworkConfigured } from "@/lib/productAutomation/r
 import { getAdapterForNetwork } from "@/lib/productAutomation/adapterFactory";
 import { SupabaseSyncStore } from "@/lib/productAutomation/supabaseSyncStore";
 import { runNetworkSync } from "@/lib/productAutomation/syncEngine";
+import { isClassificationConfigured, AnthropicClassificationClient } from "@/lib/productAutomation/classification/anthropicClient";
+import { SupabaseClassificationStore } from "@/lib/productAutomation/classification/supabaseClassificationStore";
+import { classifyPendingProducts, describeClassificationRun } from "@/lib/productAutomation/classification/classifyEngine";
 import type { ImportConfig } from "@/lib/productAutomation/importConfig";
 
 export type SyncAllResult = {
@@ -66,6 +69,17 @@ export async function syncAllNetworks(): Promise<SyncAllResult> {
     );
   }
 
+  // Continue the pipeline into classification, but only ever honestly —
+  // skipped entirely (not faked) when no AI key is configured.
+  if (isClassificationConfigured()) {
+    const classificationStore = new SupabaseClassificationStore(supabase);
+    const classificationClient = new AnthropicClassificationClient();
+    const summary = await classifyPendingProducts(classificationStore, classificationClient);
+    results.push(describeClassificationRun(summary));
+  } else {
+    results.push("Classification: ANTHROPIC_API_KEY is not configured — skipped.");
+  }
+
   revalidatePath("/admin/product-automation");
   revalidatePath("/admin/product-automation/history");
 
@@ -73,6 +87,27 @@ export async function syncAllNetworks(): Promise<SyncAllResult> {
     ranNetworks,
     message: results.join(" "),
   };
+}
+
+export type ClassifyPendingResult = {
+  message: string;
+};
+
+/** Standalone classification pass, independent of "Sync Now" — useful for working through a backlog or after adding ANTHROPIC_API_KEY. */
+export async function classifyPendingProductsAction(): Promise<ClassifyPendingResult> {
+  const { supabase } = await requireAdmin();
+
+  if (!isClassificationConfigured()) {
+    return { message: "ANTHROPIC_API_KEY is not configured — nothing to classify." };
+  }
+
+  const store = new SupabaseClassificationStore(supabase);
+  const client = new AnthropicClassificationClient();
+  const summary = await classifyPendingProducts(store, client);
+
+  revalidatePath("/admin/product-automation");
+
+  return { message: describeClassificationRun(summary) };
 }
 
 export async function updateImportConfig(formData: FormData) {
