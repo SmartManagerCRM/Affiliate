@@ -7,6 +7,7 @@ import { routing, type Locale } from "@/i18n/routing";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { CurrencyProvider } from "@/components/site/CurrencyProvider";
+import { HtmlAttributes } from "@/components/site/HtmlAttributes";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -26,6 +27,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider>
+      <HtmlAttributes />
       <CurrencyProvider>
         <Header />
         {children}
