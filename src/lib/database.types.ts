@@ -420,6 +420,178 @@ export type Database = {
           },
         ]
       }
+      product_import_errors: {
+        Row: {
+          created_at: string
+          error_message: string
+          error_type: string
+          external_id: string | null
+          id: string
+          network_id: string | null
+          raw_data: Json | null
+          sync_run_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message: string
+          error_type: string
+          external_id?: string | null
+          id?: string
+          network_id?: string | null
+          raw_data?: Json | null
+          sync_run_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string
+          error_type?: string
+          external_id?: string | null
+          id?: string
+          network_id?: string | null
+          raw_data?: Json | null
+          sync_run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_import_errors_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_import_errors_sync_run_id_fkey"
+            columns: ["sync_run_id"]
+            isOneToOne: false
+            referencedRelation: "product_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_import_sources: {
+        Row: {
+          created_at: string
+          external_offer_id: string | null
+          external_product_id: string
+          id: string
+          import_status: string
+          last_synced_at: string | null
+          network_id: string
+          offer_id: string | null
+          product_id: string | null
+          raw_data: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_offer_id?: string | null
+          external_product_id: string
+          id?: string
+          import_status?: string
+          last_synced_at?: string | null
+          network_id: string
+          offer_id?: string | null
+          product_id?: string | null
+          raw_data?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_offer_id?: string | null
+          external_product_id?: string
+          id?: string
+          import_status?: string
+          last_synced_at?: string | null
+          network_id?: string
+          offer_id?: string | null
+          product_id?: string | null
+          raw_data?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_import_sources_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_import_sources_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_import_sources_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_import_sources_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_sync_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          errors_count: number
+          id: string
+          network_id: string | null
+          products_found: number
+          products_imported: number
+          products_rejected: number
+          products_updated: number
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          errors_count?: number
+          id?: string
+          network_id?: string | null
+          products_found?: number
+          products_imported?: number
+          products_rejected?: number
+          products_updated?: number
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          errors_count?: number
+          id?: string
+          network_id?: string | null
+          products_found?: number
+          products_imported?: number
+          products_rejected?: number
+          products_updated?: number
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_sync_runs_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_networks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand_id: string | null

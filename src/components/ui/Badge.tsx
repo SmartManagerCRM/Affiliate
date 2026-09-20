@@ -1,13 +1,14 @@
 import { clsx } from "clsx";
 import type { ReactNode } from "react";
 
-type Tone = "gold" | "green" | "espresso" | "neutral";
+type Tone = "gold" | "green" | "espresso" | "neutral" | "red";
 
 const tones: Record<Tone, string> = {
   gold: "bg-accent-gold/15 text-accent-gold-dark",
   green: "bg-accent-green/15 text-accent-green-dark",
   espresso: "bg-espresso text-cream",
   neutral: "bg-beige text-espresso/70",
+  red: "bg-red-50 text-red-700",
 };
 
 export function Badge({

@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import {
   LayoutDashboard,
   Package,
+  Workflow,
   Layers,
   LayoutGrid,
   Store,
@@ -21,6 +22,7 @@ import {
 const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: Package },
+  { href: "/admin/product-automation", label: "Product Automation", icon: Workflow },
   { href: "/admin/activities", label: "Activities", icon: Layers },
   { href: "/admin/categories", label: "Categories", icon: LayoutGrid },
   { href: "/admin/retailers", label: "Retailers", icon: Store },
