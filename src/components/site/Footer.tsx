@@ -1,12 +1,12 @@
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { getActivities } from "@/lib/queries";
 import { Container } from "@/components/ui/Container";
 import { Disclosure } from "@/components/site/Disclosure";
 import { Logo } from "@/components/site/Logo";
-import { SITE_TAGLINE } from "@/lib/constants";
 
 export async function Footer() {
-  const activities = await getActivities();
+  const [activities, t] = await Promise.all([getActivities(), getTranslations("footer")]);
 
   return (
     <footer className="mt-24 border-t border-espresso/10 bg-beige/60">
@@ -15,13 +15,13 @@ export async function Footer() {
           <div className="sm:col-span-2 lg:col-span-1">
             <Logo iconSize={32} />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-espresso/60">
-              {SITE_TAGLINE}
+              {t("tagline")}
             </p>
           </div>
 
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-widest text-espresso/45">
-              Explore
+              {t("explore")}
             </h3>
             <ul className="mt-4 space-y-2.5">
               {activities.map((activity) => (
@@ -39,17 +39,17 @@ export async function Footer() {
 
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-widest text-espresso/45">
-              Selected Items
+              {t("selectedItems")}
             </h3>
             <ul className="mt-4 space-y-2.5">
               <li>
                 <Link href="/search" className="text-sm text-espresso/70 hover:text-espresso">
-                  Search
+                  {t("search")}
                 </Link>
               </li>
               <li>
                 <Link href="/#why" className="text-sm text-espresso/70 hover:text-espresso">
-                  Why Selected Items
+                  {t("whySelectedItems")}
                 </Link>
               </li>
             </ul>
@@ -57,15 +57,15 @@ export async function Footer() {
 
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-widest text-espresso/45">
-              Affiliate Disclosure
+              {t("affiliateDisclosure")}
             </h3>
             <Disclosure className="mt-4 max-w-xs" />
           </div>
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-espresso/10 pt-6 text-xs text-espresso/45 sm:flex-row sm:items-center sm:justify-between">
-          <span>© {new Date().getFullYear()} Selected Items. All rights reserved.</span>
-          <span>A curated product companion for businesses we build websites for.</span>
+          <span>{t("rights", { year: new Date().getFullYear() })}</span>
+          <span>{t("companion")}</span>
         </div>
       </Container>
     </footer>

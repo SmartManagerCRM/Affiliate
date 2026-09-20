@@ -1,0 +1,132 @@
+{
+  "languageSwitcher": {
+    "label": "Language"
+  },
+  "currencySwitcher": {
+    "label": "Currency",
+    "all": "All currencies",
+    "mena": "MENA",
+    "global": "Global"
+  },
+  "mobileMenu": {
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "menuTitle": "Menu",
+    "exploreByActivity": "Explore by activity",
+    "search": "Search"
+  },
+  "searchBox": {
+    "placeholder": "Search products…",
+    "ariaLabel": "Search products"
+  },
+  "footer": {
+    "tagline": "Smart products. Carefully selected.",
+    "explore": "Explore",
+    "selectedItems": "Selected Items",
+    "search": "Search",
+    "whySelectedItems": "Why Selected Items",
+    "affiliateDisclosure": "Affiliate Disclosure",
+    "rights": "© {year} Selected Items. All rights reserved.",
+    "companion": "A curated product companion for businesses we build websites for."
+  },
+  "disclosure": {
+    "text": "Selected Items may earn a commission when you purchase through certain links. This does not affect the price you pay."
+  },
+  "home": {
+    "badge": "Selected Items",
+    "heroLine1": "Smart products.",
+    "heroEmphasis": "Carefully selected",
+    "heroLine2": "for your business.",
+    "heroSubtitle": "Discover equipment, products and essentials selected around the activities you love and the businesses you run.",
+    "exploreProducts": "Explore Products",
+    "searchProducts": "Search products",
+    "activitiesEyebrow": "Smart products. Carefully selected.",
+    "activitiesTitle": "Explore by Activity",
+    "activitiesEmpty": "Activities will appear here once added from Admin.",
+    "featuredEyebrow": "Curated for you",
+    "featuredTitle": "Featured Picks",
+    "whyEyebrow": "Why us",
+    "whyTitle": "Why Selected Items?",
+    "valueCuratedTitle": "Carefully selected products",
+    "valueCuratedBody": "Every product is chosen for real relevance to the activity — no clutter, no guesswork.",
+    "valueTrustedTitle": "Trusted retailers",
+    "valueTrustedBody": "We work only with retailers and affiliate networks we can vouch for.",
+    "valueOffersTitle": "Local & international offers",
+    "valueOffersBody": "Compare pricing from nearby and global retailers, shown in their own currency.",
+    "valueDirectTitle": "Direct purchase from retailers",
+    "valueDirectBody": "Buy Now takes you straight to the retailer to complete your purchase — safely and directly.",
+    "metaTitle": "Selected Items — Smart Products Carefully Selected",
+    "metaDescription": "Discover equipment, products and essentials selected around the activities you love and the businesses you run. Compare offers from local and international retailers."
+  },
+  "activity": {
+    "essentials": "{name} Essentials",
+    "defaultDescription": "Equipment, products and essentials selected for better {name} experiences.",
+    "featuredPicks": "Featured Picks",
+    "allProducts": "All Products",
+    "noProducts": "No products match these filters yet. Try clearing filters or check back soon."
+  },
+  "categoryPills": {
+    "all": "All"
+  },
+  "filtersBar": {
+    "filters": "Filters",
+    "brand": "Brand",
+    "retailer": "Retailer",
+    "country": "Country",
+    "availability": "Availability",
+    "priceRange": "Price range",
+    "min": "Min",
+    "max": "Max",
+    "all": "All",
+    "clearAll": "Clear all",
+    "applyFilters": "Apply filters",
+    "clearFilters": "Clear filters",
+    "closeFilters": "Close filters",
+    "inStock": "In stock",
+    "limited": "Limited",
+    "preorder": "Preorder"
+  },
+  "sortSelect": {
+    "sort": "Sort",
+    "featured": "Featured",
+    "priceAsc": "Price: Low to High",
+    "priceDesc": "Price: High to Low",
+    "newest": "Newest"
+  },
+  "offerList": {
+    "empty": "No offers are currently available for this product.",
+    "bestValue": "Best Value",
+    "buyNow": "Buy Now",
+    "inStock": "In stock",
+    "limitedAvailability": "Limited availability",
+    "outOfStock": "Out of stock",
+    "preorder": "Preorder",
+    "matchesCurrency": "In your currency"
+  },
+  "productCard": {
+    "featured": "Featured",
+    "bestValue": "Best Value",
+    "from": "From",
+    "comingSoon": "Coming soon",
+    "buyNow": "Buy Now",
+    "view": "View",
+    "compare": "Compare {count}"
+  },
+  "product": {
+    "home": "Home",
+    "availableOffers": "Available Offers",
+    "aboutProduct": "About this product",
+    "specifications": "Specifications",
+    "youMayAlsoLike": "You may also like",
+    "offersFrom": "{count, plural, one {# offer} other {# offers}} available from",
+    "metaFallbackDescription": "{name} — compare offers on Selected Items."
+  },
+  "search": {
+    "title": "Search Products",
+    "subtitle": "Search by product name, brand, category or activity.",
+    "resultsFor": "{count, plural, one {# result} other {# results}} for “{query}”",
+    "empty": "No products found. Try a different search term.",
+    "metaTitle": "Search",
+    "metaDescription": "Search Selected Items for products by name, brand, category or activity."
+  }
+}

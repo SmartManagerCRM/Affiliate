@@ -1,10 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { clsx } from "clsx";
+import { useRouter } from "@/i18n/navigation";
 
 export function SearchBox({ compact = false }: { compact?: boolean }) {
+  const t = useTranslations("searchBox");
   const router = useRouter();
   const [value, setValue] = useState("");
 
@@ -34,8 +36,8 @@ export function SearchBox({ compact = false }: { compact?: boolean }) {
       <input
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="Search products…"
-        aria-label="Search products"
+        placeholder={t("placeholder")}
+        aria-label={t("ariaLabel")}
         className="w-full bg-transparent text-sm text-espresso placeholder:text-espresso/40 focus:outline-none"
       />
     </form>

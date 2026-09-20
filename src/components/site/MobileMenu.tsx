@@ -1,18 +1,22 @@
 "use client";
 
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { Activity } from "@/lib/types";
+import { Link } from "@/i18n/navigation";
 import { SearchBox } from "@/components/site/SearchBox";
+import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
+import { CurrencySwitcher } from "@/components/site/CurrencySwitcher";
 
 export function MobileMenu({ activities }: { activities: Activity[] }) {
+  const t = useTranslations("mobileMenu");
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        aria-label="Open menu"
+        aria-label={t("openMenu")}
         className="flex h-10 w-10 items-center justify-center rounded-full border border-espresso/15 text-espresso lg:hidden"
       >
         <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
@@ -26,7 +30,7 @@ export function MobileMenu({ activities }: { activities: Activity[] }) {
       </button>
       <Link
         href="/search"
-        aria-label="Search"
+        aria-label={t("search")}
         className="flex h-10 w-10 items-center justify-center rounded-full border border-espresso/15 text-espresso sm:hidden"
       >
         <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
@@ -41,12 +45,12 @@ export function MobileMenu({ activities }: { activities: Activity[] }) {
             className="absolute inset-0 bg-espresso/40 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-0 h-full w-[82%] max-w-sm animate-fade-up bg-cream p-6 shadow-2xl">
+          <div className="absolute end-0 top-0 h-full w-[82%] max-w-sm animate-fade-up bg-cream p-6 shadow-2xl">
             <div className="mb-8 flex items-center justify-between">
-              <span className="font-serif-display text-lg font-semibold">Menu</span>
+              <span className="font-serif-display text-lg font-semibold">{t("menuTitle")}</span>
               <button
                 onClick={() => setOpen(false)}
-                aria-label="Close menu"
+                aria-label={t("closeMenu")}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-espresso/15"
               >
                 <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
@@ -60,13 +64,18 @@ export function MobileMenu({ activities }: { activities: Activity[] }) {
               </button>
             </div>
 
+            <div className="mb-6 flex items-center gap-2 md:hidden">
+              <LanguageSwitcher />
+              <CurrencySwitcher />
+            </div>
+
             <div className="mb-8">
               <SearchBox />
             </div>
 
             <nav className="flex flex-col gap-1">
               <span className="mb-2 text-xs font-semibold uppercase tracking-widest text-espresso/40">
-                Explore by activity
+                {t("exploreByActivity")}
               </span>
               {activities.map((activity) => (
                 <Link

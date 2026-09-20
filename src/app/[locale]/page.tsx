@@ -1,80 +1,84 @@
 import type { Metadata } from "next";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container } from "@/components/ui/Container";
 import { ButtonLink } from "@/components/ui/Button";
 import { ActivityCard } from "@/components/site/ActivityCard";
 import { ProductCard } from "@/components/site/ProductCard";
 import { Disclosure } from "@/components/site/Disclosure";
 import { getActivities, getFeaturedProducts } from "@/lib/queries";
-import { SITE_TAGLINE } from "@/lib/constants";
+import type { Locale } from "@/i18n/routing";
 
 // No per-visitor data on this page, so it can be cached and revalidated in
 // the background instead of hitting the database on every single request.
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Selected Items — Smart Products Carefully Selected",
-  description:
-    "Discover equipment, products and essentials selected around the activities you love and the businesses you run. Compare offers from local and international retailers.",
-  alternates: { canonical: "/" },
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "home" });
 
-const VALUE_POINTS = [
-  {
-    title: "Carefully selected products",
-    body: "Every product is chosen for real relevance to the activity — no clutter, no guesswork.",
-  },
-  {
-    title: "Trusted retailers",
-    body: "We work only with retailers and affiliate networks we can vouch for.",
-  },
-  {
-    title: "Local & international offers",
-    body: "Compare pricing from nearby and global retailers, shown in their own currency.",
-  },
-  {
-    title: "Direct purchase from retailers",
-    body: "Buy Now takes you straight to the retailer to complete your purchase — safely and directly.",
-  },
-];
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+    alternates: { canonical: "/" },
+  };
+}
 
-export default async function HomePage() {
-  const [activities, featured] = await Promise.all([
+export default async function HomePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale as Locale);
+
+  const [t, activities, featured] = await Promise.all([
+    getTranslations("home"),
     getActivities(),
     getFeaturedProducts(8),
   ]);
+
+  const valuePoints = [
+    { title: t("valueCuratedTitle"), body: t("valueCuratedBody") },
+    { title: t("valueTrustedTitle"), body: t("valueTrustedBody") },
+    { title: t("valueOffersTitle"), body: t("valueOffersBody") },
+    { title: t("valueDirectTitle"), body: t("valueDirectBody") },
+  ];
 
   return (
     <>
       <section className="relative overflow-hidden border-b border-espresso/10 bg-gradient-to-b from-beige/70 to-cream">
         <div
-          className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-accent-gold/10 blur-3xl"
+          className="pointer-events-none absolute -end-24 -top-24 h-96 w-96 rounded-full bg-accent-gold/10 blur-3xl"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -left-32 bottom-0 h-80 w-80 rounded-full bg-accent-green/10 blur-3xl"
+          className="pointer-events-none absolute -start-32 bottom-0 h-80 w-80 rounded-full bg-accent-green/10 blur-3xl"
           aria-hidden
         />
         <Container className="relative py-20 sm:py-28">
           <div className="mx-auto max-w-2xl text-center">
             <span className="inline-flex items-center rounded-full border border-espresso/15 bg-white/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-espresso/60">
-              Selected Items
+              {t("badge")}
             </span>
             <h1 className="mt-6 text-balance font-serif-display text-4xl font-semibold leading-[1.1] text-espresso sm:text-6xl">
-              Smart products.
+              {t("heroLine1")}
               <br />
-              <span className="italic text-accent-gold">Carefully selected</span> for
-              your business.
+              <span className="italic text-accent-gold">{t("heroEmphasis")}</span>{" "}
+              {t("heroLine2")}
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-balance text-base leading-relaxed text-espresso/60 sm:text-lg">
-              Discover equipment, products and essentials selected around the
-              activities you love and the businesses you run.
+              {t("heroSubtitle")}
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <ButtonLink href="#activities" size="lg">
-                Explore Products
+                {t("exploreProducts")}
               </ButtonLink>
               <ButtonLink href="/search" size="lg" variant="outline">
-                Search products
+                {t("searchProducts")}
               </ButtonLink>
             </div>
           </div>
@@ -85,10 +89,10 @@ export default async function HomePage() {
         <Container>
           <div className="mb-10 flex flex-col items-start gap-3 sm:mb-12">
             <span className="text-xs font-semibold uppercase tracking-widest text-accent-green">
-              {SITE_TAGLINE}
+              {t("activitiesEyebrow")}
             </span>
             <h2 className="font-serif-display text-3xl font-semibold text-espresso sm:text-4xl">
-              Explore by Activity
+              {t("activitiesTitle")}
             </h2>
           </div>
 
@@ -99,9 +103,7 @@ export default async function HomePage() {
               ))}
             </div>
           ) : (
-            <p className="text-espresso/50">
-              Activities will appear here once added from Admin.
-            </p>
+            <p className="text-espresso/50">{t("activitiesEmpty")}</p>
           )}
         </Container>
       </section>
@@ -111,10 +113,10 @@ export default async function HomePage() {
           <Container>
             <div className="mb-10 flex flex-col items-start gap-3 sm:mb-12">
               <span className="text-xs font-semibold uppercase tracking-widest text-accent-green">
-                Curated for you
+                {t("featuredEyebrow")}
               </span>
               <h2 className="font-serif-display text-3xl font-semibold text-espresso sm:text-4xl">
-                Featured Picks
+                {t("featuredTitle")}
               </h2>
             </div>
             <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
@@ -130,14 +132,14 @@ export default async function HomePage() {
         <Container>
           <div className="mb-10 flex flex-col items-start gap-3 sm:mb-12">
             <span className="text-xs font-semibold uppercase tracking-widest text-accent-green">
-              Why us
+              {t("whyEyebrow")}
             </span>
             <h2 className="font-serif-display text-3xl font-semibold text-espresso sm:text-4xl">
-              Why Selected Items?
+              {t("whyTitle")}
             </h2>
           </div>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {VALUE_POINTS.map((point) => (
+            {valuePoints.map((point) => (
               <div
                 key={point.title}
                 className="rounded-2xl border border-espresso/10 bg-white p-6 shadow-[var(--shadow-card)]"

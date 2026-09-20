@@ -39,6 +39,12 @@
   --animate-fade-up: fade-up 0.5s ease both;
 }
 
+/* Arabic pages swap in Arabic-script faces for the same serif/sans roles. */
+:root[dir="rtl"] {
+  --font-fraunces: var(--font-noto-kufi-arabic);
+  --font-inter: var(--font-noto-sans-arabic);
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;

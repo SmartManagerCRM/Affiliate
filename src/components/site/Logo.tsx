@@ -1,6 +1,6 @@
 import Image from "next/image";
-import Link from "next/link";
 import { clsx } from "clsx";
+import { Link } from "@/i18n/navigation";
 
 export function Logo({
   href = "/",

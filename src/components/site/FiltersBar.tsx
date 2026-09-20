@@ -1,7 +1,9 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useRouter } from "@/i18n/navigation";
 import { buildQueryString } from "@/lib/url";
 import { Button, ButtonLink } from "@/components/ui/Button";
 
@@ -18,6 +20,7 @@ export function FiltersBar({
   retailers: Option[];
   countries: Option[];
 }) {
+  const t = useTranslations("filtersBar");
   const router = useRouter();
   const searchParams = useSearchParams();
   const current = Object.fromEntries(searchParams.entries());
@@ -55,6 +58,12 @@ export function FiltersBar({
     setOpen(false);
   }
 
+  const availabilityOptions = [
+    { value: "in_stock", label: t("inStock") },
+    { value: "limited", label: t("limited") },
+    { value: "preorder", label: t("preorder") },
+  ];
+
   return (
     <>
       <button
@@ -69,7 +78,7 @@ export function FiltersBar({
             strokeLinecap="round"
           />
         </svg>
-        Filters
+        {t("filters")}
         {activeCount > 0 && (
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green text-[11px] font-semibold text-white">
             {activeCount}
@@ -83,12 +92,12 @@ export function FiltersBar({
             className="absolute inset-0 bg-espresso/40 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-cream p-6 shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:w-full sm:max-w-sm sm:rounded-t-none">
+          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-cream p-6 shadow-2xl sm:inset-y-0 sm:start-auto sm:end-0 sm:w-full sm:max-w-sm sm:rounded-t-none">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="font-serif-display text-xl font-semibold">Filters</h2>
+              <h2 className="font-serif-display text-xl font-semibold">{t("filters")}</h2>
               <button
                 onClick={() => setOpen(false)}
-                aria-label="Close filters"
+                aria-label={t("closeFilters")}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-espresso/15"
               >
                 <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
@@ -100,7 +109,8 @@ export function FiltersBar({
             <div className="space-y-6">
               {brands.length > 0 && (
                 <FilterGroup
-                  label="Brand"
+                  label={t("brand")}
+                  allLabel={t("all")}
                   value={draft.brand}
                   options={brands}
                   onChange={(v) => setDraft((d) => ({ ...d, brand: v }))}
@@ -108,7 +118,8 @@ export function FiltersBar({
               )}
               {retailers.length > 0 && (
                 <FilterGroup
-                  label="Retailer"
+                  label={t("retailer")}
+                  allLabel={t("all")}
                   value={draft.retailer}
                   options={retailers}
                   onChange={(v) => setDraft((d) => ({ ...d, retailer: v }))}
@@ -116,32 +127,30 @@ export function FiltersBar({
               )}
               {countries.length > 0 && (
                 <FilterGroup
-                  label="Country"
+                  label={t("country")}
+                  allLabel={t("all")}
                   value={draft.country}
                   options={countries}
                   onChange={(v) => setDraft((d) => ({ ...d, country: v }))}
                 />
               )}
               <FilterGroup
-                label="Availability"
+                label={t("availability")}
+                allLabel={t("all")}
                 value={draft.availability}
-                options={[
-                  { value: "in_stock", label: "In stock" },
-                  { value: "limited", label: "Limited" },
-                  { value: "preorder", label: "Preorder" },
-                ]}
+                options={availabilityOptions}
                 onChange={(v) => setDraft((d) => ({ ...d, availability: v }))}
               />
 
               <div>
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-widest text-espresso/45">
-                  Price range
+                  {t("priceRange")}
                 </span>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     min={0}
-                    placeholder="Min"
+                    placeholder={t("min")}
                     value={draft.priceMin}
                     onChange={(e) => setDraft((d) => ({ ...d, priceMin: e.target.value }))}
                     className="w-full rounded-lg border border-espresso/15 bg-white px-3 py-2 text-sm focus:border-accent-gold focus:outline-none"
@@ -150,7 +159,7 @@ export function FiltersBar({
                   <input
                     type="number"
                     min={0}
-                    placeholder="Max"
+                    placeholder={t("max")}
                     value={draft.priceMax}
                     onChange={(e) => setDraft((d) => ({ ...d, priceMax: e.target.value }))}
                     className="w-full rounded-lg border border-espresso/15 bg-white px-3 py-2 text-sm focus:border-accent-gold focus:outline-none"
@@ -161,10 +170,10 @@ export function FiltersBar({
 
             <div className="mt-8 flex gap-3">
               <Button variant="outline" className="flex-1" onClick={clear} type="button">
-                Clear all
+                {t("clearAll")}
               </Button>
               <Button className="flex-1" onClick={apply} type="button">
-                Apply filters
+                {t("applyFilters")}
               </Button>
             </div>
           </div>
@@ -176,11 +185,13 @@ export function FiltersBar({
 
 function FilterGroup({
   label,
+  allLabel,
   value,
   options,
   onChange,
 }: {
   label: string;
+  allLabel: string;
   value: string;
   options: Option[];
   onChange: (v: string) => void;
@@ -198,7 +209,7 @@ function FilterGroup({
             value === "" ? "border-espresso bg-espresso text-cream" : "border-espresso/15 text-espresso/70"
           }`}
         >
-          All
+          {allLabel}
         </button>
         {options.map((opt) => (
           <button
@@ -220,9 +231,10 @@ function FilterGroup({
 }
 
 export function ClearFiltersLink({ basePath }: { basePath: string }) {
+  const t = useTranslations("filtersBar");
   return (
     <ButtonLink href={basePath} variant="ghost" size="sm">
-      Clear filters
+      {t("clearFilters")}
     </ButtonLink>
   );
 }

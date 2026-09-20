@@ -1,21 +1,29 @@
+"use client";
+
 import Image from "next/image";
-import { ButtonLink } from "@/components/ui/Button";
+import { useTranslations } from "next-intl";
+import { RawButtonLink } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { formatPrice, discountPercent } from "@/lib/format";
+import { ANY_CURRENCY } from "@/lib/currency";
+import { useCurrency } from "@/components/site/CurrencyProvider";
 import type { OfferPublic } from "@/lib/types";
 
-const AVAILABILITY_LABEL: Record<string, string> = {
-  in_stock: "In stock",
-  limited: "Limited availability",
-  out_of_stock: "Out of stock",
-  preorder: "Preorder",
-};
-
 export function OfferList({ offers }: { offers: OfferPublic[] }) {
+  const t = useTranslations("offerList");
+  const { currency } = useCurrency();
+
+  const availabilityLabel: Record<string, string> = {
+    in_stock: t("inStock"),
+    limited: t("limitedAvailability"),
+    out_of_stock: t("outOfStock"),
+    preorder: t("preorder"),
+  };
+
   if (offers.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-espresso/15 p-8 text-center text-sm text-espresso/50">
-        No offers are currently available for this product.
+        {t("empty")}
       </div>
     );
   }
@@ -24,16 +32,30 @@ export function OfferList({ offers }: { offers: OfferPublic[] }) {
     (o.price ?? Infinity) < (min.price ?? Infinity) ? o : min
   ).id;
 
+  // Never converts a price — only reorders so offers already in the
+  // shopper's chosen currency surface first, and flags them visually.
+  const sorted =
+    currency === ANY_CURRENCY
+      ? offers
+      : [...offers].sort((a, b) => {
+          const aMatch = a.currency === currency ? 0 : 1;
+          const bMatch = b.currency === currency ? 0 : 1;
+          return aMatch - bMatch;
+        });
+
   return (
     <div className="flex flex-col gap-3">
-      {offers.map((offer) => {
+      {sorted.map((offer) => {
         const discount = discountPercent(offer.price ?? 0, offer.original_price);
         const isBestValue = offer.id === cheapestId && offers.length > 1;
+        const matchesCurrency = currency !== ANY_CURRENCY && offer.currency === currency;
 
         return (
           <div
             key={offer.id}
-            className="flex flex-col gap-4 rounded-2xl border border-espresso/10 bg-white p-4 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between sm:p-5"
+            className={`flex flex-col gap-4 rounded-2xl border bg-white p-4 shadow-[var(--shadow-card)] sm:flex-row sm:items-center sm:justify-between sm:p-5 ${
+              matchesCurrency ? "border-accent-green/50 ring-1 ring-accent-green/30" : "border-espresso/10"
+            }`}
           >
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-beige">
@@ -54,13 +76,14 @@ export function OfferList({ offers }: { offers: OfferPublic[] }) {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-espresso">{offer.retailer_name}</span>
-                  {isBestValue && <Badge tone="green">Best Value</Badge>}
+                  {isBestValue && <Badge tone="green">{t("bestValue")}</Badge>}
+                  {matchesCurrency && <Badge tone="gold">{t("matchesCurrency")}</Badge>}
                   {discount && <Badge tone="gold">-{discount}%</Badge>}
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-espresso/50">
                   {offer.country && <span>{offer.country}</span>}
                   {offer.availability && (
-                    <span>· {AVAILABILITY_LABEL[offer.availability] ?? offer.availability}</span>
+                    <span>· {availabilityLabel[offer.availability] ?? offer.availability}</span>
                   )}
                   {offer.shipping_info && <span>· {offer.shipping_info}</span>}
                 </div>
@@ -78,9 +101,9 @@ export function OfferList({ offers }: { offers: OfferPublic[] }) {
                   {formatPrice(offer.price ?? 0, offer.currency ?? "USD")}
                 </span>
               </div>
-              <ButtonLink href={`/go/${offer.id}`} size="md">
-                Buy Now
-              </ButtonLink>
+              <RawButtonLink href={`/go/${offer.id}`} size="md">
+                {t("buyNow")}
+              </RawButtonLink>
             </div>
           </div>
         );

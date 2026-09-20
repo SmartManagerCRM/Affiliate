@@ -1,6 +1,7 @@
 import { clsx } from "clsx";
-import Link from "next/link";
+import NextLink from "next/link";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Link } from "@/i18n/navigation";
 
 type Variant = "primary" | "secondary" | "ghost" | "outline";
 type Size = "sm" | "md" | "lg";
@@ -64,5 +65,29 @@ export function ButtonLink({
     >
       {children}
     </Link>
+  );
+}
+
+/**
+ * For links to routes that live outside src/app/[locale] (/go, /placeholder,
+ * /admin) — these must never get a locale prefix, so they use next/link
+ * directly instead of the locale-aware ButtonLink above.
+ */
+export function RawButtonLink({
+  href,
+  variant = "primary",
+  size = "md",
+  className,
+  children,
+  ...props
+}: CommonProps & { href: string; target?: string; rel?: string }) {
+  return (
+    <NextLink
+      href={href}
+      className={clsx(base, variants[variant], sizes[size], className)}
+      {...props}
+    >
+      {children}
+    </NextLink>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
 import { ProductGallery } from "@/components/site/ProductGallery";
@@ -11,6 +12,7 @@ import { getProductBySlug, getProducts } from "@/lib/queries";
 import { placeholderImage } from "@/lib/image";
 import { formatPrice } from "@/lib/format";
 import { SITE_URL } from "@/lib/constants";
+import type { Locale } from "@/i18n/routing";
 
 // No per-visitor data on this page, so it can be cached and revalidated in
 // the background instead of hitting the database on every single request.
@@ -19,17 +21,18 @@ export const revalidate = 60;
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { locale, slug } = await params;
   const product = await getProductBySlug(slug);
   if (!product) return {};
 
+  const t = await getTranslations({ locale, namespace: "product" });
   const title = product.seo_title || product.name;
   const description =
     product.seo_description ||
     product.short_description ||
-    `${product.name} — compare offers on Selected Items.`;
+    t("metaFallbackDescription", { name: product.name });
 
   return {
     title,
@@ -47,9 +50,15 @@ export async function generateMetadata({
 export default async function ProductPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { slug } = await params;
+  const { locale, slug } = await params;
+  setRequestLocale(locale as Locale);
+
+  const [t, tCard] = await Promise.all([
+    getTranslations("product"),
+    getTranslations("productCard"),
+  ]);
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
@@ -102,7 +111,7 @@ export default async function ProductPage({
     <Container className="py-10 sm:py-14">
       <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-espresso/45">
         <Link href="/" className="hover:text-espresso">
-          Home
+          {t("home")}
         </Link>
         {product.categories[0] && (
           <>
@@ -128,7 +137,7 @@ export default async function ProductPage({
           </h1>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {product.featured && <Badge tone="gold">Featured</Badge>}
+            {product.featured && <Badge tone="gold">{tCard("featured")}</Badge>}
             {product.categories.map((c) => (
               <Badge key={c.id} tone="neutral">
                 {c.name}
@@ -144,8 +153,7 @@ export default async function ProductPage({
 
           {cheapest && (
             <p className="mt-5 text-sm text-espresso/50">
-              {product.offers.length} offer{product.offers.length > 1 ? "s" : ""} available
-              from{" "}
+              {t("offersFrom", { count: product.offers.length })}{" "}
               <span className="font-semibold text-espresso">
                 {formatPrice(cheapest.price ?? 0, cheapest.currency ?? "USD")}
               </span>
@@ -154,7 +162,7 @@ export default async function ProductPage({
 
           <div className="mt-6">
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-espresso/45">
-              Available Offers
+              {t("availableOffers")}
             </h2>
             <OfferList offers={product.offers} />
           </div>
@@ -162,7 +170,7 @@ export default async function ProductPage({
           {product.description && (
             <div className="mt-8">
               <h2 className="mb-2 font-serif-display text-lg font-semibold text-espresso">
-                About this product
+                {t("aboutProduct")}
               </h2>
               <p className="whitespace-pre-line text-sm leading-relaxed text-espresso/65">
                 {product.description}
@@ -173,7 +181,7 @@ export default async function ProductPage({
           {specs.length > 0 && (
             <div className="mt-8">
               <h2 className="mb-3 font-serif-display text-lg font-semibold text-espresso">
-                Specifications
+                {t("specifications")}
               </h2>
               <dl className="divide-y divide-espresso/10 rounded-2xl border border-espresso/10 bg-white">
                 {specs.map(([key, value]) => (
@@ -193,7 +201,7 @@ export default async function ProductPage({
       {related.length > 0 && (
         <div className="mt-20">
           <h2 className="mb-6 font-serif-display text-2xl font-semibold text-espresso">
-            You may also like
+            {t("youMayAlsoLike")}
           </h2>
           <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
             {related.map((p) => (

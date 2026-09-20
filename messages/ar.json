@@ -1,0 +1,132 @@
+{
+  "languageSwitcher": {
+    "label": "اللغة"
+  },
+  "currencySwitcher": {
+    "label": "العملة",
+    "all": "كل العملات",
+    "mena": "الشرق الأوسط وشمال إفريقيا",
+    "global": "عالمية"
+  },
+  "mobileMenu": {
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "menuTitle": "القائمة",
+    "exploreByActivity": "استكشف حسب النشاط",
+    "search": "بحث"
+  },
+  "searchBox": {
+    "placeholder": "ابحث عن منتجات…",
+    "ariaLabel": "ابحث عن منتجات"
+  },
+  "footer": {
+    "tagline": "منتجات ذكية. مختارة بعناية.",
+    "explore": "استكشف",
+    "selectedItems": "Selected Items",
+    "search": "بحث",
+    "whySelectedItems": "لماذا Selected Items",
+    "affiliateDisclosure": "إفصاح التسويق بالعمولة",
+    "rights": "© {year} Selected Items. جميع الحقوق محفوظة.",
+    "companion": "رفيقك لاختيار المنتجات، لصالح الأعمال التي ننشئ لها المواقع الإلكترونية."
+  },
+  "disclosure": {
+    "text": "قد تحصل Selected Items على عمولة عند الشراء عبر بعض الروابط. هذا لا يؤثر على السعر الذي تدفعه."
+  },
+  "home": {
+    "badge": "Selected Items",
+    "heroLine1": "منتجات ذكية.",
+    "heroEmphasis": "مختارة بعناية",
+    "heroLine2": "لأجل عملك.",
+    "heroSubtitle": "اكتشف المعدات والمنتجات والأساسيات المختارة حول الأنشطة التي تحبها والأعمال التي تديرها.",
+    "exploreProducts": "استكشف المنتجات",
+    "searchProducts": "ابحث عن منتجات",
+    "activitiesEyebrow": "منتجات ذكية. مختارة بعناية.",
+    "activitiesTitle": "استكشف حسب النشاط",
+    "activitiesEmpty": "ستظهر الأنشطة هنا بمجرد إضافتها من لوحة التحكم.",
+    "featuredEyebrow": "مختارة لأجلك",
+    "featuredTitle": "الأكثر تميزاً",
+    "whyEyebrow": "لماذا نحن",
+    "whyTitle": "لماذا Selected Items؟",
+    "valueCuratedTitle": "منتجات مختارة بعناية",
+    "valueCuratedBody": "يتم اختيار كل منتج لملاءمته الحقيقية للنشاط — دون فوضى ودون تخمين.",
+    "valueTrustedTitle": "متاجر موثوقة",
+    "valueTrustedBody": "نتعامل فقط مع المتاجر وشبكات التسويق بالعمولة التي يمكننا ضمانها.",
+    "valueOffersTitle": "عروض محلية وعالمية",
+    "valueOffersBody": "قارن الأسعار من متاجر محلية وعالمية، معروضة بعملتها الخاصة.",
+    "valueDirectTitle": "الشراء مباشرة من المتجر",
+    "valueDirectBody": "يأخذك زر \"اشترِ الآن\" مباشرة إلى المتجر لإتمام عملية الشراء — بأمان وبشكل مباشر.",
+    "metaTitle": "Selected Items — منتجات ذكية مختارة بعناية",
+    "metaDescription": "اكتشف المعدات والمنتجات والأساسيات المختارة حول الأنشطة التي تحبها والأعمال التي تديرها. قارن العروض من متاجر محلية وعالمية."
+  },
+  "activity": {
+    "essentials": "أساسيات {name}",
+    "defaultDescription": "معدات ومنتجات وأساسيات مختارة لتجربة {name} أفضل.",
+    "featuredPicks": "الأكثر تميزاً",
+    "allProducts": "كل المنتجات",
+    "noProducts": "لا توجد منتجات مطابقة لهذه الفلاتر حالياً. جرّب مسح الفلاتر أو عد لاحقاً."
+  },
+  "categoryPills": {
+    "all": "الكل"
+  },
+  "filtersBar": {
+    "filters": "الفلاتر",
+    "brand": "العلامة التجارية",
+    "retailer": "المتجر",
+    "country": "الدولة",
+    "availability": "التوفر",
+    "priceRange": "نطاق السعر",
+    "min": "الأدنى",
+    "max": "الأقصى",
+    "all": "الكل",
+    "clearAll": "مسح الكل",
+    "applyFilters": "تطبيق الفلاتر",
+    "clearFilters": "مسح الفلاتر",
+    "closeFilters": "إغلاق الفلاتر",
+    "inStock": "متوفر",
+    "limited": "كمية محدودة",
+    "preorder": "طلب مسبق"
+  },
+  "sortSelect": {
+    "sort": "ترتيب",
+    "featured": "مميز",
+    "priceAsc": "السعر: من الأقل للأعلى",
+    "priceDesc": "السعر: من الأعلى للأقل",
+    "newest": "الأحدث"
+  },
+  "offerList": {
+    "empty": "لا توجد عروض متاحة حالياً لهذا المنتج.",
+    "bestValue": "أفضل قيمة",
+    "buyNow": "اشترِ الآن",
+    "inStock": "متوفر",
+    "limitedAvailability": "توفر محدود",
+    "outOfStock": "غير متوفر",
+    "preorder": "طلب مسبق",
+    "matchesCurrency": "بعملتك"
+  },
+  "productCard": {
+    "featured": "مميز",
+    "bestValue": "أفضل قيمة",
+    "from": "يبدأ من",
+    "comingSoon": "قريباً",
+    "buyNow": "اشترِ الآن",
+    "view": "عرض",
+    "compare": "قارن {count}"
+  },
+  "product": {
+    "home": "الرئيسية",
+    "availableOffers": "العروض المتاحة",
+    "aboutProduct": "عن هذا المنتج",
+    "specifications": "المواصفات",
+    "youMayAlsoLike": "قد يعجبك أيضاً",
+    "offersFrom": "{count, plural, one {# عرض متاح} other {# عروض متاحة}} يبدأ من",
+    "metaFallbackDescription": "{name} — قارن العروض على Selected Items."
+  },
+  "search": {
+    "title": "البحث عن المنتجات",
+    "subtitle": "ابحث باسم المنتج أو العلامة التجارية أو الفئة أو النشاط.",
+    "resultsFor": "{count, plural, one {نتيجة واحدة} other {# نتائج}} عن «{query}»",
+    "empty": "لم يتم العثور على منتجات. جرّب مصطلح بحث آخر.",
+    "metaTitle": "بحث",
+    "metaDescription": "ابحث في Selected Items عن المنتجات بالاسم أو العلامة التجارية أو الفئة أو النشاط."
+  }
+}

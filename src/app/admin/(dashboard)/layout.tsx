@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { SidebarNav } from "@/components/admin/Sidebar";
 import { AdminMobileSidebar } from "@/components/admin/AdminMobileSidebar";
 import { SignOutButton } from "@/components/admin/SignOutButton";
+import { AdminLanguageSwitcher } from "@/components/admin/AdminLanguageSwitcher";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -45,7 +46,10 @@ export default async function AdminDashboardLayout({
               {admin.full_name || admin.email}
             </span>
           </div>
-          <SignOutButton />
+          <div className="flex items-center gap-3">
+            <AdminLanguageSwitcher />
+            <SignOutButton />
+          </div>
         </header>
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>

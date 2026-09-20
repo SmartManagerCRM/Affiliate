@@ -1,12 +1,14 @@
 import Image from "next/image";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/Badge";
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink, RawButtonLink } from "@/components/ui/Button";
+import { Link } from "@/i18n/navigation";
 import { placeholderImage } from "@/lib/image";
 import { formatPrice } from "@/lib/format";
 import type { ProductCardData } from "@/lib/types";
 
 export function ProductCard({ product }: { product: ProductCardData }) {
+  const t = useTranslations("productCard");
   const offers = product.offers ?? [];
   const cheapest = offers.length
     ? offers.reduce((min, o) => ((o.price ?? Infinity) < (min.price ?? Infinity) ? o : min))
@@ -26,9 +28,9 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           sizes="(min-width: 1024px) 25vw, (min-width: 640px) 40vw, 90vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-          {product.featured && <Badge tone="gold">Featured</Badge>}
-          {retailerCount >= 2 && <Badge tone="green">Best Value</Badge>}
+        <div className="absolute start-3 top-3 flex flex-wrap gap-1.5">
+          {product.featured && <Badge tone="gold">{t("featured")}</Badge>}
+          {retailerCount >= 2 && <Badge tone="green">{t("bestValue")}</Badge>}
         </div>
       </Link>
 
@@ -54,25 +56,25 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             {cheapest ? (
               <>
                 <span className="text-[11px] uppercase tracking-wide text-espresso/40">
-                  From
+                  {t("from")}
                 </span>
                 <span className="font-serif-display text-xl font-semibold text-espresso">
                   {formatPrice(cheapest.price ?? 0, cheapest.currency ?? "USD")}
                 </span>
               </>
             ) : (
-              <span className="text-sm text-espresso/40">Coming soon</span>
+              <span className="text-sm text-espresso/40">{t("comingSoon")}</span>
             )}
           </div>
 
           {cheapest && offers.length === 1 ? (
-            <ButtonLink
+            <RawButtonLink
               href={`/go/${cheapest.id}`}
               size="sm"
               className="shrink-0"
             >
-              Buy Now
-            </ButtonLink>
+              {t("buyNow")}
+            </RawButtonLink>
           ) : (
             <ButtonLink
               href={`/product/${product.slug}`}
@@ -80,7 +82,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
               variant="outline"
               className="shrink-0"
             >
-              {offers.length > 1 ? `Compare ${offers.length}` : "View"}
+              {offers.length > 1 ? t("compare", { count: offers.length }) : t("view")}
             </ButtonLink>
           )}
         </div>

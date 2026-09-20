@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import type { Category } from "@/lib/types";
 
 export function CategoryPills({
@@ -11,6 +12,8 @@ export function CategoryPills({
   categories: Category[];
   activeSlug?: string;
 }) {
+  const t = useTranslations("categoryPills");
+
   if (categories.length === 0) return null;
 
   return (
@@ -24,7 +27,7 @@ export function CategoryPills({
             : "border-espresso/15 bg-white text-espresso/70 hover:border-espresso/30"
         )}
       >
-        All
+        {t("all")}
       </Link>
       {categories.map((category) => (
         <Link

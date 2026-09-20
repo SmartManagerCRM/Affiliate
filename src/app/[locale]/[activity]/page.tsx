@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container } from "@/components/ui/Container";
 import { ProductCard } from "@/components/site/ProductCard";
 import { CategoryPills } from "@/components/site/CategoryPills";
@@ -14,21 +15,22 @@ import {
   getProducts,
   getRetailersForProducts,
 } from "@/lib/queries";
+import type { Locale } from "@/i18n/routing";
 import type { SortOption } from "@/lib/types";
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ activity: string }>;
+  params: Promise<{ locale: string; activity: string }>;
 }): Promise<Metadata> {
-  const { activity: slug } = await params;
+  const { locale, activity: slug } = await params;
   const activity = await getActivityBySlug(slug);
   if (!activity) return {};
 
-  const title = activity.seo_title || `${activity.name} Essentials`;
+  const t = await getTranslations({ locale, namespace: "activity" });
+  const title = activity.seo_title || t("essentials", { name: activity.name });
   const description =
-    activity.seo_description ||
-    `Equipment, products and essentials selected for better ${activity.name.toLowerCase()} experiences.`;
+    activity.seo_description || t("defaultDescription", { name: activity.name });
 
   return {
     title,
@@ -42,10 +44,13 @@ export default async function ActivityPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ activity: string }>;
+  params: Promise<{ locale: string; activity: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { activity: activitySlug } = await params;
+  const { locale, activity: activitySlug } = await params;
+  setRequestLocale(locale as Locale);
+
+  const t = await getTranslations("activity");
   const sp = await searchParams;
   const activity = await getActivityBySlug(activitySlug);
   if (!activity) notFound();
@@ -91,11 +96,10 @@ export default async function ActivityPage({
         <Container className="relative py-16 sm:py-24">
           <span className="text-2xl">{activity.icon || "✦"}</span>
           <h1 className="mt-3 font-serif-display text-3xl font-semibold text-cream sm:text-5xl">
-            {activity.name} Essentials
+            {t("essentials", { name: activity.name })}
           </h1>
           <p className="mt-3 max-w-xl text-balance text-sm leading-relaxed text-cream/75 sm:text-base">
-            {activity.description ||
-              `Equipment, products and essentials selected for better ${activity.name.toLowerCase()} experiences.`}
+            {activity.description || t("defaultDescription", { name: activity.name })}
           </p>
         </Container>
       </section>
@@ -106,7 +110,7 @@ export default async function ActivityPage({
         {featured.length > 0 && !categorySlug && (
           <div className="mt-10">
             <h2 className="mb-5 font-serif-display text-2xl font-semibold text-espresso">
-              Featured Picks
+              {t("featuredPicks")}
             </h2>
             <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
               {featured.map((product) => (
@@ -119,8 +123,8 @@ export default async function ActivityPage({
         <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-serif-display text-2xl font-semibold text-espresso">
             {categorySlug
-              ? categories.find((c) => c.slug === categorySlug)?.name ?? "Products"
-              : "All Products"}
+              ? categories.find((c) => c.slug === categorySlug)?.name ?? t("allProducts")
+              : t("allProducts")}
             <span className="ml-2 text-base font-normal text-espresso/40">
               ({products.length})
             </span>
@@ -139,7 +143,7 @@ export default async function ActivityPage({
           </div>
         ) : (
           <div className="mt-10 rounded-2xl border border-dashed border-espresso/15 p-12 text-center text-espresso/50">
-            No products match these filters yet. Try clearing filters or check back soon.
+            {t("noProducts")}
           </div>
         )}
       </Container>

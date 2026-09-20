@@ -1,9 +1,11 @@
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { getActivities } from "@/lib/queries";
 import { Container } from "@/components/ui/Container";
 import { Logo } from "@/components/site/Logo";
 import { MobileMenu } from "@/components/site/MobileMenu";
 import { SearchBox } from "@/components/site/SearchBox";
+import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
+import { CurrencySwitcher } from "@/components/site/CurrencySwitcher";
 
 export async function Header() {
   const activities = await getActivities();
@@ -26,6 +28,10 @@ export async function Header() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden items-center gap-2 md:flex">
+            <LanguageSwitcher />
+            <CurrencySwitcher />
+          </div>
           <div className="hidden sm:block">
             <SearchBox compact />
           </div>

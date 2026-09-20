@@ -1,0 +1,132 @@
+{
+  "languageSwitcher": {
+    "label": "Langue"
+  },
+  "currencySwitcher": {
+    "label": "Devise",
+    "all": "Toutes les devises",
+    "mena": "MENA",
+    "global": "International"
+  },
+  "mobileMenu": {
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
+    "menuTitle": "Menu",
+    "exploreByActivity": "Explorer par activité",
+    "search": "Rechercher"
+  },
+  "searchBox": {
+    "placeholder": "Rechercher des produits…",
+    "ariaLabel": "Rechercher des produits"
+  },
+  "footer": {
+    "tagline": "Des produits intelligents. Soigneusement sélectionnés.",
+    "explore": "Explorer",
+    "selectedItems": "Selected Items",
+    "search": "Rechercher",
+    "whySelectedItems": "Pourquoi Selected Items",
+    "affiliateDisclosure": "Déclaration d'affiliation",
+    "rights": "© {year} Selected Items. Tous droits réservés.",
+    "companion": "Un compagnon produits sélectionnés pour les entreprises pour lesquelles nous créons des sites web."
+  },
+  "disclosure": {
+    "text": "Selected Items peut percevoir une commission lorsque vous achetez via certains liens. Cela n'affecte pas le prix que vous payez."
+  },
+  "home": {
+    "badge": "Selected Items",
+    "heroLine1": "Des produits intelligents.",
+    "heroEmphasis": "Soigneusement sélectionnés",
+    "heroLine2": "pour votre entreprise.",
+    "heroSubtitle": "Découvrez des équipements, produits et essentiels sélectionnés autour des activités que vous aimez et des entreprises que vous gérez.",
+    "exploreProducts": "Découvrir les produits",
+    "searchProducts": "Rechercher des produits",
+    "activitiesEyebrow": "Des produits intelligents. Soigneusement sélectionnés.",
+    "activitiesTitle": "Explorer par activité",
+    "activitiesEmpty": "Les activités apparaîtront ici une fois ajoutées depuis l'Admin.",
+    "featuredEyebrow": "Sélectionnés pour vous",
+    "featuredTitle": "Sélection phare",
+    "whyEyebrow": "Pourquoi nous",
+    "whyTitle": "Pourquoi Selected Items ?",
+    "valueCuratedTitle": "Des produits soigneusement sélectionnés",
+    "valueCuratedBody": "Chaque produit est choisi pour sa pertinence réelle avec l'activité — sans superflu, sans hasard.",
+    "valueTrustedTitle": "Des revendeurs de confiance",
+    "valueTrustedBody": "Nous travaillons uniquement avec des revendeurs et réseaux d'affiliation dont nous pouvons répondre.",
+    "valueOffersTitle": "Offres locales et internationales",
+    "valueOffersBody": "Comparez les prix de revendeurs locaux et internationaux, affichés dans leur propre devise.",
+    "valueDirectTitle": "Achat direct chez le revendeur",
+    "valueDirectBody": "Le bouton Acheter vous amène directement chez le revendeur pour finaliser votre achat — en toute sécurité.",
+    "metaTitle": "Selected Items — Des produits intelligents soigneusement sélectionnés",
+    "metaDescription": "Découvrez des équipements, produits et essentiels sélectionnés autour des activités que vous aimez et des entreprises que vous gérez. Comparez les offres de revendeurs locaux et internationaux."
+  },
+  "activity": {
+    "essentials": "Essentiels {name}",
+    "defaultDescription": "Équipements, produits et essentiels sélectionnés pour une meilleure expérience {name}.",
+    "featuredPicks": "Sélection phare",
+    "allProducts": "Tous les produits",
+    "noProducts": "Aucun produit ne correspond à ces filtres pour le moment. Essayez de les réinitialiser ou revenez bientôt."
+  },
+  "categoryPills": {
+    "all": "Tout"
+  },
+  "filtersBar": {
+    "filters": "Filtres",
+    "brand": "Marque",
+    "retailer": "Revendeur",
+    "country": "Pays",
+    "availability": "Disponibilité",
+    "priceRange": "Fourchette de prix",
+    "min": "Min",
+    "max": "Max",
+    "all": "Tout",
+    "clearAll": "Tout effacer",
+    "applyFilters": "Appliquer les filtres",
+    "clearFilters": "Effacer les filtres",
+    "closeFilters": "Fermer les filtres",
+    "inStock": "En stock",
+    "limited": "Stock limité",
+    "preorder": "Précommande"
+  },
+  "sortSelect": {
+    "sort": "Trier",
+    "featured": "À la une",
+    "priceAsc": "Prix croissant",
+    "priceDesc": "Prix décroissant",
+    "newest": "Nouveautés"
+  },
+  "offerList": {
+    "empty": "Aucune offre n'est actuellement disponible pour ce produit.",
+    "bestValue": "Meilleur prix",
+    "buyNow": "Acheter",
+    "inStock": "En stock",
+    "limitedAvailability": "Disponibilité limitée",
+    "outOfStock": "Rupture de stock",
+    "preorder": "Précommande",
+    "matchesCurrency": "Dans votre devise"
+  },
+  "productCard": {
+    "featured": "À la une",
+    "bestValue": "Meilleur prix",
+    "from": "À partir de",
+    "comingSoon": "Bientôt disponible",
+    "buyNow": "Acheter",
+    "view": "Voir",
+    "compare": "Comparer {count}"
+  },
+  "product": {
+    "home": "Accueil",
+    "availableOffers": "Offres disponibles",
+    "aboutProduct": "À propos de ce produit",
+    "specifications": "Caractéristiques",
+    "youMayAlsoLike": "Vous aimerez aussi",
+    "offersFrom": "{count, plural, one {# offre disponible} other {# offres disponibles}} à partir de",
+    "metaFallbackDescription": "{name} — comparez les offres sur Selected Items."
+  },
+  "search": {
+    "title": "Rechercher des produits",
+    "subtitle": "Recherchez par nom de produit, marque, catégorie ou activité.",
+    "resultsFor": "{count, plural, one {# résultat} other {# résultats}} pour « {query} »",
+    "empty": "Aucun produit trouvé. Essayez un autre terme de recherche.",
+    "metaTitle": "Recherche",
+    "metaDescription": "Recherchez des produits sur Selected Items par nom, marque, catégorie ou activité."
+  }
+}
