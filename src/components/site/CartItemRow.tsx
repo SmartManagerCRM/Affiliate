@@ -6,16 +6,30 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { ButtonLink } from "@/components/ui/Button";
 import { Price } from "@/components/site/Price";
 import { useCart } from "@/components/site/CartProvider";
+import { ShopAtRetailerLink } from "@/components/site/ShopAtRetailerLink";
 import { updateCartItemQuantityAction, removeCartItemAction } from "@/actions/cart";
 import { placeholderImage, isOptimizableImageSrc } from "@/lib/image";
 import type { CartItemView } from "@/lib/types";
 
 const MAX_QUANTITY = 99;
 
-export function CartItemRow({ item }: { item: CartItemView }) {
+/**
+ * `position`/`groupSize` are only for the "N of M" hint shown within a
+ * multi-item, same-retailer group — the clear, sequential (not multi-tab)
+ * way to shop items one at a time at a retailer with no real multi-cart
+ * support.
+ */
+export function CartItemRow({
+  item,
+  position,
+  groupSize,
+}: {
+  item: CartItemView;
+  position?: number;
+  groupSize?: number;
+}) {
   const t = useTranslations("cart");
   const router = useRouter();
   const { refresh: refreshCartBadge } = useCart();
@@ -67,14 +81,28 @@ export function CartItemRow({ item }: { item: CartItemView }) {
           </div>
           <div className="min-w-0">
             <p className="truncate font-medium text-espresso">{item.product_name}</p>
-            <p className="text-sm text-espresso/50">{item.retailer_name}</p>
+            <p className="text-sm text-espresso/50">
+              {item.retailer_name}
+              {groupSize && groupSize > 1 && position && (
+                <span className="text-espresso/35"> · {t("itemPosition", { position, count: groupSize })}</span>
+              )}
+            </p>
             {!item.is_available && <p className="mt-0.5 text-xs font-medium text-red-600">{t("unavailable")}</p>}
           </div>
         </Link>
         {item.is_available && (
-          <ButtonLink href={`/go/${item.offer_id}`} size="sm" variant="outline" className="self-start">
+          <ShopAtRetailerLink
+            href={`/go/${item.offer_id}`}
+            offerId={item.offer_id}
+            productId={item.product_id}
+            retailerId={item.retailer_id}
+            metadata={{ source: "cart_item" }}
+            size="sm"
+            variant="outline"
+            className="self-start"
+          >
             {t("shopAtRetailer")}
-          </ButtonLink>
+          </ShopAtRetailerLink>
         )}
       </div>
 

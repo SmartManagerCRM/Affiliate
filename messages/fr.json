@@ -150,6 +150,8 @@
     "exploreActivity": "Découvrir {name}",
     "shopAtRetailer": "Acheter chez ce revendeur",
     "shopNItemsAt": "{count, plural, one {Acheter # article chez {retailer}} other {Acheter # articles chez {retailer}}}",
+    "shopAll": "Tout acheter",
+    "itemPosition": "Article {position} sur {count}",
     "individualNotice": "Ces articles sont disponibles chez le même revendeur, mais doivent être ajoutés individuellement."
   },
   "search": {

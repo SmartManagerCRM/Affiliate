@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import NextLink from "next/link";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, MouseEventHandler, ReactNode } from "react";
 import { Link as LocaleLink } from "@/i18n/navigation";
 
 type Variant = "primary" | "secondary" | "ghost" | "outline";
@@ -61,7 +61,12 @@ export function ButtonLink({
   className,
   children,
   ...props
-}: CommonProps & { href: string; target?: string; rel?: string }) {
+}: CommonProps & {
+  href: string;
+  target?: string;
+  rel?: string;
+  onClick?: MouseEventHandler<HTMLAnchorElement>;
+}) {
   return (
     <NextLink
       href={href}

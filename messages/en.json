@@ -150,6 +150,8 @@
     "exploreActivity": "Explore {name}",
     "shopAtRetailer": "Shop at Retailer",
     "shopNItemsAt": "{count, plural, one {Shop # Item at {retailer}} other {Shop # Items at {retailer}}}",
+    "shopAll": "Shop All",
+    "itemPosition": "Item {position} of {count}",
     "individualNotice": "These items are available from the same retailer, but they need to be added individually."
   },
   "search": {

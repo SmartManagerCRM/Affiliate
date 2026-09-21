@@ -3,9 +3,10 @@ import Image from "next/image";
 import { ShoppingBag } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container } from "@/components/ui/Container";
-import { ButtonLink, LocaleButtonLink } from "@/components/ui/Button";
+import { LocaleButtonLink } from "@/components/ui/Button";
 import { CartItemRow } from "@/components/site/CartItemRow";
 import { ClearCartButton } from "@/components/site/ClearCartButton";
+import { ShopAtRetailerLink } from "@/components/site/ShopAtRetailerLink";
 import { getCartSessionToken } from "@/lib/cart/session";
 import { getCartItems } from "@/lib/cart/store";
 import { getActivities } from "@/lib/queries";
@@ -64,6 +65,8 @@ export default async function CartPage({
     );
   }
 
+  const shopAllTarget = items.find((item) => item.is_available) ?? null;
+
   return (
     <Container className="py-10 sm:py-14">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -73,7 +76,20 @@ export default async function CartPage({
           </h1>
           <p className="mt-1 text-sm text-espresso/50">{t("itemCount", { count: items.length })}</p>
         </div>
-        <ClearCartButton />
+        <div className="flex items-center gap-3">
+          {items.length > 1 && shopAllTarget && (
+            <ShopAtRetailerLink
+              href={`/go/${shopAllTarget.offer_id}`}
+              offerId={shopAllTarget.offer_id}
+              productId={shopAllTarget.product_id}
+              retailerId={shopAllTarget.retailer_id}
+              metadata={{ source: "shop_all", total_items: items.length }}
+            >
+              {t("shopAll")}
+            </ShopAtRetailerLink>
+          )}
+          <ClearCartButton />
+        </div>
       </div>
 
       <div className="hidden grid-cols-[38%_1fr_auto_1fr_auto] gap-4 border-b border-espresso/10 pb-3 text-xs font-semibold uppercase tracking-widest text-espresso/40 sm:grid">
@@ -111,15 +127,27 @@ export default async function CartPage({
                   <span className="text-sm text-espresso/40">{t("itemCount", { count: group.items.length })}</span>
                 </div>
                 {group.items.length > 1 && shopTarget && (
-                  <ButtonLink href={`/go/${shopTarget.offer_id}`} size="sm">
+                  <ShopAtRetailerLink
+                    href={`/go/${shopTarget.offer_id}`}
+                    offerId={shopTarget.offer_id}
+                    productId={shopTarget.product_id}
+                    retailerId={shopTarget.retailer_id}
+                    metadata={{ source: "shop_group", group_size: group.items.length }}
+                    size="sm"
+                  >
                     {t("shopNItemsAt", { count: group.items.length, retailer: group.retailerName })}
-                  </ButtonLink>
+                  </ShopAtRetailerLink>
                 )}
               </div>
 
               <div className="px-4 sm:px-5">
-                {group.items.map((item) => (
-                  <CartItemRow key={item.cart_item_id} item={item} />
+                {group.items.map((item, index) => (
+                  <CartItemRow
+                    key={item.cart_item_id}
+                    item={item}
+                    position={index + 1}
+                    groupSize={group.items.length}
+                  />
                 ))}
               </div>
 

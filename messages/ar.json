@@ -150,6 +150,8 @@
     "exploreActivity": "استكشف {name}",
     "shopAtRetailer": "تسوّق من المتجر",
     "shopNItemsAt": "{count, plural, one {تسوّق عنصرًا واحدًا من {retailer}} other {تسوّق # عناصر من {retailer}}}",
+    "shopAll": "تسوّق الكل",
+    "itemPosition": "العنصر {position} من {count}",
     "individualNotice": "هذه العناصر متوفرة لدى نفس المتجر، لكن يجب إضافتها بشكل منفصل."
   },
   "search": {
