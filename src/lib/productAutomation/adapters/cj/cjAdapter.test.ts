@@ -114,6 +114,39 @@ describe("CjAdapter", () => {
     });
   });
 
+  describe("HTTP error body surfacing — a bare status code alone isn't enough to diagnose a GraphQL 4xx", () => {
+    it("surfaces a JSON errors[].message body on a non-2xx response", async () => {
+      const fetchImpl = vi.fn(
+        async () => new Response(JSON.stringify({ errors: [{ message: "Variable $publisherId of type ID! was provided invalid value" }] }), { status: 400 })
+      );
+      const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
+
+      const result = await adapter.testConnection();
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("400");
+      expect(result.message).toContain("Variable $publisherId of type ID! was provided invalid value");
+    });
+
+    it("surfaces a plain-text body on a non-2xx response with no JSON errors", async () => {
+      const fetchImpl = vi.fn(async () => new Response("Bad Request: invalid query", { status: 400 }));
+      const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
+
+      const result = await adapter.testConnection();
+
+      expect(result.message).toContain("Bad Request: invalid query");
+    });
+
+    it("falls back to the bare status message when the error body is empty", async () => {
+      const fetchImpl = vi.fn(async () => new Response("", { status: 400 }));
+      const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
+
+      const result = await adapter.testConnection();
+
+      expect(result.message).toBe("Request failed with status 400");
+    });
+  });
+
   describe("API failure", () => {
     it("retries a transient 500 and succeeds on the second attempt", async () => {
       let calls = 0;

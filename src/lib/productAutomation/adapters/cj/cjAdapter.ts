@@ -9,7 +9,7 @@ import type {
   NormalizedProduct,
 } from "../../types";
 import { getCjConfig, hasCjCredentials, type CjConfig } from "./config";
-import { withRetry, errorForResponse, fetchWithTimeout } from "../../httpRetry";
+import { withRetry, errorForResponse, fetchWithTimeout, HttpStatusError } from "../../httpRetry";
 import { parseAdvertiserLookupResponse, type DiscoveredCjAdvertiser } from "./discovery";
 import { parseContractsResponse, extractGraphQLErrorMessage, type DiscoveredCjContract } from "./contracts";
 
@@ -192,7 +192,7 @@ export class CjAdapter implements AffiliateNetworkAdapter {
         },
         this.timeoutMs
       );
-      if (!response.ok) throw errorForResponse(response);
+      if (!response.ok) throw await this.errorForContractsResponse(response);
       return response.json();
     });
 
@@ -200,6 +200,45 @@ export class CjAdapter implements AffiliateNetworkAdapter {
     if (errorMessage) throw new Error(`CJ Contracts query failed: ${errorMessage}`);
 
     return parseContractsResponse(json);
+  }
+
+  /**
+   * errorForResponse() alone only reports the HTTP status — deliberately,
+   * since it's shared across every adapter and has no vendor-specific
+   * knowledge of response bodies. A GraphQL endpoint's 4xx (malformed
+   * query, invalid variable type, wrong operation name, ...) almost always
+   * carries the real explanation in a JSON `errors` array or a plain-text
+   * body, so this reads and surfaces it — the bare status code alone isn't
+   * enough to diagnose a real discovery failure. Never throws itself: a
+   * body that isn't readable or parseable just falls back to the plain
+   * status error, same as before.
+   */
+  private async errorForContractsResponse(response: Response): Promise<Error> {
+    const baseError = errorForResponse(response);
+    if (!(baseError instanceof HttpStatusError)) return baseError; // e.g. 429 — no extra body detail needed
+
+    let bodyText = "";
+    try {
+      bodyText = await response.text();
+    } catch {
+      return baseError;
+    }
+    if (!bodyText.trim()) return baseError;
+
+    let detail: string | null = null;
+    try {
+      const parsed = JSON.parse(bodyText);
+      detail = extractGraphQLErrorMessage(parsed);
+      if (!detail && parsed && typeof parsed === "object") {
+        const obj = parsed as Record<string, unknown>;
+        if (typeof obj.message === "string") detail = obj.message;
+        else if (typeof obj.error === "string") detail = obj.error;
+      }
+    } catch {
+      detail = bodyText.slice(0, 500);
+    }
+
+    return detail ? new HttpStatusError(`${baseError.message}: ${detail}`, baseError.status) : baseError;
   }
 
   private async fetchAdvertiserLookupXml(filters: { advertiserIds?: string[] }): Promise<string> {
