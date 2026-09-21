@@ -11,11 +11,30 @@ import type {
 import { getCjConfig, hasCjCredentials, type CjConfig } from "./config";
 import { withRetry, errorForResponse, fetchWithTimeout, HttpStatusError } from "../../httpRetry";
 import { parseAdvertiserLookupResponse, type DiscoveredCjAdvertiser } from "./discovery";
-import { parseContractsResponse, extractGraphQLErrorMessage, type DiscoveredCjContract } from "./contracts";
+import { parseProductsResponse, extractGraphQLErrorMessage, type DiscoveredJoinedAdvertiser } from "./joinedAdvertisers";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const CONTRACTS_PAGE_SIZE = 100;
-const MAX_CONTRACTS_PAGES = 200; // safety bound against a misbehaving/always-full-page API
+const PRODUCTS_PAGE_SIZE = 100;
+const MAX_PRODUCT_PAGES = 500; // safety bound — a large catalog may need many pages just to see every joined advertiser once
+
+/**
+ * Deliberately minimal: only the two fields discoverPrograms() needs to
+ * identify an advertiser. `partnerStatus: JOINED` is hardcoded as a literal
+ * (not a variable) — it's always the same value here, and hardcoding avoids
+ * needing to reference the `PartnerStatus` enum's exact type name as a
+ * variable type (the same mistake that broke the `Date` scalar earlier).
+ */
+const PRODUCTS_QUERY = `
+  query DiscoverJoinedAdvertisers($companyId: ID!, $limit: Int, $offset: Int) {
+    products(companyId: $companyId, partnerStatus: JOINED, limit: $limit, offset: $offset) {
+      totalCount
+      resultList {
+        advertiserId
+        advertiserName
+      }
+    }
+  }
+`;
 
 export type CjAdapterOptions = {
   config?: CjConfig;
@@ -25,70 +44,55 @@ export type CjAdapterOptions = {
 };
 
 /**
- * activeAfter/activeBefore are deliberately NOT included as query variables:
- * a real account's response confirmed CJ's schema rejects a `Date` scalar
- * type ("Unknown type 'Date'") for them, and since this adapter never
- * actually filters by date (always called with limit/offset/advertiserId
- * only), the safe fix is to drop the two unused arguments rather than guess
- * another type name blind. If date filtering is ever needed, the correct
- * scalar type must be confirmed against CJ's real schema first.
- */
-const CONTRACTS_QUERY = `
-  query PublisherContracts($publisherId: ID!, $advertiserId: ID, $limit: Int, $offset: Int) {
-    publisherQueries {
-      contracts(publisherId: $publisherId, advertiserId: $advertiserId, limit: $limit, offset: $offset) {
-        totalCount
-        resultList {
-          advertiserId
-          advertiserName
-          status
-        }
-      }
-    }
-  }
-`;
-
-/**
  * CJ (Commission Junction / CJ Affiliate) network adapter.
  *
  * Authentication is a long-lived Personal Access Token (CJ_API_KEY), sent
  * directly as `Authorization: Bearer <token>` — unlike Admitad, CJ has no
  * separate OAuth2 token-exchange step to perform first.
  *
- * DISCOVERY SOURCE — CHANGED after a real account confirmed the original
- * implementation missed an already-APPROVED advertiser. The Advertiser
- * Lookup REST API (fetchAdvertiserLookupXml, kept below but no longer
- * called by discoverPrograms/testConnection) is a general advertiser
- * *directory* search — it does not reliably reflect this account's own
- * approved relationships. Discovery now calls the `publisherQueries.
- * contracts` GraphQL query instead, which is what actually returns the
- * publisher's real advertiser relationships/contract status.
+ * DISCOVERY SOURCE — HISTORY. The original implementation used the
+ * Advertiser Lookup REST API (fetchAdvertiserLookupXml, kept below as
+ * lookupAdvertisers(), no longer called by discoverPrograms/testConnection)
+ * — a general advertiser *directory* search that a real account confirmed
+ * does not reliably reflect this account's own approved relationships. That
+ * was replaced with a `publisherQueries.contracts` GraphQL query, based on
+ * the account owner's own report of their CJ schema access — but a live
+ * request against the real account came back with "Cannot query field
+ * 'publisherQueries' on type 'Query'", proving that field doesn't exist on
+ * ads.api.cj.com's actual Query type. Independently corroborated by a
+ * third-party archive of the same schema (github.com/api-evangelist/
+ * cj-affiliate, captured via live introspection, 2026-08-13): no
+ * `contracts`/`publisherQueries` field exists on any of CJ's three GraphQL
+ * hosts (ads/commissions/tracking).
  *
- * CJ ENDPOINTS — PARTIALLY VERIFIED against a real account (2026-09-21).
- * developers.cj.com and every mirror attempted are still blocked by this
- * sandbox's network egress policy, so the schema was sourced from the
- * account owner's own live access, not confirmed independently — but a
- * real 400 response from ads.api.cj.com/query confirmed: the host is
- * reachable and authenticates the request; the query name, and the
- * `publisherId`/`advertiserId`/`limit`/`offset` argument names on
- * `publisherQueries.contracts`, all passed CJ's own schema validation
- * (the ONLY reported violation was `$activeAfter`/`$activeBefore` typed as
- * a nonexistent `Date` scalar — those two arguments were unused anyway
- * (always null) and have been removed rather than guessing another type
- * name). What's still genuinely unverified: the per-contract field names
- * within resultList (defensive alias lookup — see contracts.ts), and
- * whether `publisherId` is really the same identifier as
- * CJ_WEBSITE_ID/requestor-cid or a distinct one (if discovery still comes
- * up empty or errors after this fix, that mapping is the next thing to
- * check). Parsing never throws on an unexpected shape — a wrong assumption
- * degrades to "found fewer/no contracts", and the admin UI's manual "Add
+ * DISCOVERY SOURCE — CURRENT. CJ's GraphQL API has no dedicated "list my
+ * advertiser relationships" query at all. What IS confirmed (from the same
+ * schema archive): `products` accepts `partnerStatus: PartnerStatus`, whose
+ * `JOINED` value CJ documents as "Restricts results to advertisers you have
+ * an active relationship with," and every returned `Product` row carries
+ * `advertiserId`/`advertiserName` directly. So discoverPrograms() instead
+ * pages through `products(companyId, partnerStatus: JOINED, ...)` and
+ * collects the distinct advertisers out of the product rows — see
+ * joinedAdvertisers.ts for the full citation trail and parsing.
+ *
+ * TRADE-OFF: this means discovery pages through the account's actual
+ * product catalog (bounded by MAX_PRODUCT_PAGES), not a short dedicated
+ * list — an account with a very large catalog may take many requests, and
+ * could in principle hit the page bound before reaching every advertiser's
+ * products (in practice, advertisers with any products at all tend to
+ * appear within the first pages, but this is a real, documented limitation
+ * of not having a proper relationship-listing endpoint to call instead).
+ * Parsing never throws on an unexpected shape — a wrong assumption degrades
+ * to "found fewer/no advertisers this page", and the admin UI's manual "Add
  * Program" form works regardless.
  *
  * Product synchronization (fetchProducts/fetchOffers/normalize) is
  * intentionally NOT implemented yet — this phase only covers
  * authentication, connection testing, and advertiser/program discovery.
  * Calling fetchProducts()/normalize() throws a clear "not implemented"
- * error rather than ever fabricating product data.
+ * error rather than ever fabricating product data. (discoverPrograms()
+ * happens to also query the `products` field, but only ever reads
+ * advertiserId/advertiserName off it — never a full product record.)
  */
 export class CjAdapter implements AffiliateNetworkAdapter {
   readonly key = "cj";
@@ -115,7 +119,7 @@ export class CjAdapter implements AffiliateNetworkAdapter {
       return { ok: false, message: "CJ is not configured: set CJ_API_KEY and CJ_WEBSITE_ID." };
     }
     try {
-      await this.fetchContractsPage({ limit: 1, offset: 0 });
+      await this.fetchJoinedProductsPage({ limit: 1, offset: 0 });
       return { ok: true, message: "Connected to CJ." };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error connecting to CJ.";
@@ -124,32 +128,37 @@ export class CjAdapter implements AffiliateNetworkAdapter {
   }
 
   /**
-   * Lists advertisers this account actually has a contract/relationship
-   * with, via the Contracts GraphQL query — paginated (CONTRACTS_PAGE_SIZE
-   * per page, bounded by MAX_CONTRACTS_PAGES) so an account with more than
-   * one page of relationships doesn't silently lose anything past page one,
-   * unlike the previous Advertiser Lookup-based implementation.
+   * Lists advertisers this account has actually joined, by paginating
+   * `products(partnerStatus: JOINED)` (PRODUCTS_PAGE_SIZE per page, bounded
+   * by MAX_PRODUCT_PAGES) and deduping the distinct advertisers out of the
+   * product rows returned — see the class-level doc comment for why this
+   * indirect approach is necessary and its trade-offs.
    */
-  async discoverPrograms(): Promise<DiscoveredCjContract[]> {
+  async discoverPrograms(): Promise<DiscoveredJoinedAdvertiser[]> {
     if (!hasCjCredentials(this.config)) {
       throw new Error("CJ is not configured: set CJ_API_KEY and CJ_WEBSITE_ID.");
     }
 
-    const all: DiscoveredCjContract[] = [];
+    const seen = new Map<string, DiscoveredJoinedAdvertiser>();
     let offset = 0;
 
-    for (let page = 0; page < MAX_CONTRACTS_PAGES; page++) {
-      const result = await this.fetchContractsPage({ limit: CONTRACTS_PAGE_SIZE, offset });
-      all.push(...result.contracts);
+    for (let page = 0; page < MAX_PRODUCT_PAGES; page++) {
+      const result = await this.fetchJoinedProductsPage({ limit: PRODUCTS_PAGE_SIZE, offset });
+      for (const advertiser of result.advertisers) {
+        if (!seen.has(advertiser.cjAdvertiserId)) seen.set(advertiser.cjAdvertiserId, advertiser);
+      }
 
-      offset += CONTRACTS_PAGE_SIZE;
+      offset += PRODUCTS_PAGE_SIZE;
       const knowsTotal = result.totalCount !== null;
       const exhaustedKnownTotal = knowsTotal && offset >= (result.totalCount as number);
-      const pageWasShort = result.contracts.length < CONTRACTS_PAGE_SIZE;
+      // Uses the raw per-product-row count for this page, not the deduped
+      // advertiser count — a full page of products can collapse into very
+      // few distinct advertisers without that meaning the page was short.
+      const pageWasShort = result.advertisers.length < PRODUCTS_PAGE_SIZE;
       if (exhaustedKnownTotal || pageWasShort) break;
     }
 
-    return all;
+    return Array.from(seen.values());
   }
 
   /** Kept for a possible secondary/manual-lookup use, but no longer called by discoverPrograms()/testConnection() — see the class-level caveat above for why. */
@@ -176,12 +185,11 @@ export class CjAdapter implements AffiliateNetworkAdapter {
     throw new Error("CJ product normalization is not implemented yet.");
   }
 
-  private async fetchContractsPage(params: { limit: number; offset: number; advertiserId?: string }) {
+  private async fetchJoinedProductsPage(params: { limit: number; offset: number }) {
     const body = JSON.stringify({
-      query: CONTRACTS_QUERY,
+      query: PRODUCTS_QUERY,
       variables: {
-        publisherId: this.config.websiteId,
-        advertiserId: params.advertiserId ?? null,
+        companyId: this.config.websiteId,
         limit: params.limit,
         offset: params.offset,
       },
@@ -201,28 +209,30 @@ export class CjAdapter implements AffiliateNetworkAdapter {
         },
         this.timeoutMs
       );
-      if (!response.ok) throw await this.errorForContractsResponse(response);
+      if (!response.ok) throw await this.errorForGraphQLResponse(response);
       return response.json();
     });
 
     const errorMessage = extractGraphQLErrorMessage(json);
-    if (errorMessage) throw new Error(`CJ Contracts query failed: ${errorMessage}`);
+    if (errorMessage) throw new Error(`CJ products query failed: ${errorMessage}`);
 
-    return parseContractsResponse(json);
+    return parseProductsResponse(json);
   }
 
   /**
    * errorForResponse() alone only reports the HTTP status — deliberately,
    * since it's shared across every adapter and has no vendor-specific
    * knowledge of response bodies. A GraphQL endpoint's 4xx (malformed
-   * query, invalid variable type, wrong operation name, ...) almost always
-   * carries the real explanation in a JSON `errors` array or a plain-text
-   * body, so this reads and surfaces it — the bare status code alone isn't
-   * enough to diagnose a real discovery failure. Never throws itself: a
-   * body that isn't readable or parseable just falls back to the plain
-   * status error, same as before.
+   * query, invalid variable type, unknown field, ...) almost always carries
+   * the real explanation in a JSON `errors` array or a plain-text body, so
+   * this reads and surfaces it — the bare status code alone isn't enough to
+   * diagnose a real discovery failure (this is exactly how the
+   * publisherQueries.contracts field and the Date scalar type were both
+   * proven wrong against a real account). Never throws itself: a body
+   * that isn't readable or parseable just falls back to the plain status
+   * error, same as before.
    */
-  private async errorForContractsResponse(response: Response): Promise<Error> {
+  private async errorForGraphQLResponse(response: Response): Promise<Error> {
     const baseError = errorForResponse(response);
     if (!(baseError instanceof HttpStatusError)) return baseError; // e.g. 429 — no extra body detail needed
 

@@ -16,11 +16,11 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-const CONTRACT_A = { advertiserId: "1111", advertiserName: "Acme Store", status: "active" };
-const CONTRACT_B = { advertiserId: "2222", advertiserName: "Beta Co", status: "pending" };
+const PRODUCT_A = { advertiserId: "1111", advertiserName: "Acme Store" };
+const PRODUCT_B = { advertiserId: "2222", advertiserName: "Beta Co" };
 
-function contractsResponse(resultList: unknown[], totalCount: number | null = null) {
-  return jsonResponse({ data: { publisherQueries: { contracts: { totalCount, resultList } } } });
+function productsResponse(resultList: unknown[], totalCount: number | null = null) {
+  return jsonResponse({ data: { products: { totalCount, resultList } } });
 }
 
 const SAMPLE_XML = `<?xml version="1.0"?><cj-api><advertisers total-matched="2">
@@ -86,11 +86,11 @@ describe("CjAdapter", () => {
       expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
 
-    it("sends the PAT as a Bearer token and the website id as the publisherId GraphQL variable, against the GraphQL endpoint", async () => {
+    it("sends the PAT as a Bearer token and the website id as the companyId GraphQL variable, against the GraphQL endpoint", async () => {
       const fetchImpl = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
         void url;
         void init;
-        return contractsResponse([CONTRACT_A], 1);
+        return productsResponse([PRODUCT_A], 1);
       });
       const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
 
@@ -100,24 +100,25 @@ describe("CjAdapter", () => {
       expect(url.toString()).toBe("https://ads.api.cj.test/query");
       expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer test-pat");
       const body = JSON.parse(init?.body as string);
-      expect(body.variables.publisherId).toBe("1234567");
+      expect(body.variables.companyId).toBe("1234567");
+      expect(body.query).toContain("partnerStatus: JOINED");
     });
 
     it("treats a top-level GraphQL errors array as a failure, not zero results", async () => {
-      const fetchImpl = vi.fn(async () => jsonResponse({ errors: [{ message: "Invalid publisherId" }] }));
+      const fetchImpl = vi.fn(async () => jsonResponse({ errors: [{ message: "Invalid companyId" }] }));
       const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
 
       const result = await adapter.testConnection();
 
       expect(result.ok).toBe(false);
-      expect(result.message).toContain("Invalid publisherId");
+      expect(result.message).toContain("Invalid companyId");
     });
   });
 
   describe("HTTP error body surfacing — a bare status code alone isn't enough to diagnose a GraphQL 4xx", () => {
     it("surfaces a JSON errors[].message body on a non-2xx response", async () => {
       const fetchImpl = vi.fn(
-        async () => new Response(JSON.stringify({ errors: [{ message: "Variable $publisherId of type ID! was provided invalid value" }] }), { status: 400 })
+        async () => new Response(JSON.stringify({ errors: [{ message: "Cannot query field 'publisherQueries' on type 'Query'." }] }), { status: 400 })
       );
       const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
 
@@ -125,7 +126,7 @@ describe("CjAdapter", () => {
 
       expect(result.ok).toBe(false);
       expect(result.message).toContain("400");
-      expect(result.message).toContain("Variable $publisherId of type ID! was provided invalid value");
+      expect(result.message).toContain("Cannot query field 'publisherQueries' on type 'Query'.");
     });
 
     it("surfaces a plain-text body on a non-2xx response with no JSON errors", async () => {
@@ -153,7 +154,7 @@ describe("CjAdapter", () => {
       const fetchImpl = vi.fn(async () => {
         calls += 1;
         if (calls === 1) return new Response("server error", { status: 500 });
-        return contractsResponse([CONTRACT_A], 1);
+        return productsResponse([PRODUCT_A], 1);
       });
       const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
 
@@ -192,48 +193,58 @@ describe("CjAdapter", () => {
     }, 10_000);
   });
 
-  describe("advertiser/contract discovery", () => {
-    it("returns every discovered contract, parsed from the Contracts GraphQL response", async () => {
-      const fetchImpl = vi.fn(async () => contractsResponse([CONTRACT_A, CONTRACT_B], 2));
+  describe("advertiser discovery via products(partnerStatus: JOINED)", () => {
+    it("returns every distinct advertiser found across the product rows", async () => {
+      const fetchImpl = vi.fn(async () => productsResponse([PRODUCT_A, PRODUCT_B], 2));
       const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
 
-      const contracts = await adapter.discoverPrograms();
+      const advertisers = await adapter.discoverPrograms();
 
-      expect(contracts).toEqual([
-        { cjAdvertiserId: "1111", advertiserName: "Acme Store", status: "active" },
-        { cjAdvertiserId: "2222", advertiserName: "Beta Co", status: "pending" },
+      expect(advertisers).toEqual([
+        { cjAdvertiserId: "1111", advertiserName: "Acme Store" },
+        { cjAdvertiserId: "2222", advertiserName: "Beta Co" },
       ]);
       expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
 
-    it("returns an empty array for an empty result set rather than throwing", async () => {
-      const fetchImpl = vi.fn(async () => contractsResponse([], 0));
+    it("dedupes an advertiser that appears on multiple product rows", async () => {
+      const fetchImpl = vi.fn(async () => productsResponse([PRODUCT_A, PRODUCT_A, PRODUCT_B, PRODUCT_A], 4));
       const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
 
-      const contracts = await adapter.discoverPrograms();
+      const advertisers = await adapter.discoverPrograms();
 
-      expect(contracts).toEqual([]);
+      expect(advertisers).toEqual([
+        { cjAdvertiserId: "1111", advertiserName: "Acme Store" },
+        { cjAdvertiserId: "2222", advertiserName: "Beta Co" },
+      ]);
     });
 
-    it("paginates through multiple full pages until a short page ends the result set", async () => {
-      const fullPage = Array.from({ length: 100 }, (_, i) => ({
-        advertiserId: String(i + 1),
-        advertiserName: `Advertiser ${i + 1}`,
-        status: "active",
-      }));
-      const shortPage = [CONTRACT_B];
+    it("returns an empty array for an empty result set rather than throwing", async () => {
+      const fetchImpl = vi.fn(async () => productsResponse([], 0));
+      const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
+
+      const advertisers = await adapter.discoverPrograms();
+
+      expect(advertisers).toEqual([]);
+    });
+
+    it("paginates through multiple full pages until a short page ends the result set, deduping across pages", async () => {
+      const fullPage = Array.from({ length: 100 }, () => PRODUCT_A); // one advertiser, 100 products
+      const shortPage = [PRODUCT_B];
       let calls = 0;
       const fetchImpl = vi.fn(async () => {
         calls += 1;
-        return contractsResponse(calls === 1 ? fullPage : shortPage, null);
+        return productsResponse(calls === 1 ? fullPage : shortPage, null);
       });
       const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
 
-      const contracts = await adapter.discoverPrograms();
+      const advertisers = await adapter.discoverPrograms();
 
       expect(fetchImpl).toHaveBeenCalledTimes(2);
-      expect(contracts).toHaveLength(101);
-      expect(contracts[100]).toEqual({ cjAdvertiserId: "2222", advertiserName: "Beta Co", status: "pending" });
+      expect(advertisers).toEqual([
+        { cjAdvertiserId: "1111", advertiserName: "Acme Store" },
+        { cjAdvertiserId: "2222", advertiserName: "Beta Co" },
+      ]);
     });
   });
 

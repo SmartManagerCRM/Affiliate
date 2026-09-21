@@ -5,8 +5,8 @@ import "server-only";
  * — no advertiser/program data belongs here. There is exactly one CJ
  * connection per deployment; every advertiser this account has a
  * relationship with lives in the cj_programs Supabase table instead (see
- * programsStore.ts), discovered via the Contracts GraphQL API or added by
- * hand. Adding an advertiser is a database row, never a Hostinger
+ * programsStore.ts), discovered via CJ's Product Search GraphQL API or
+ * added by hand. Adding an advertiser is a database row, never a Hostinger
  * environment variable.
  *
  * Unlike Admitad, CJ's publisher APIs authenticate with a long-lived
@@ -14,16 +14,18 @@ import "server-only";
  * no separate OAuth2 client_credentials token-exchange step. CJ_API_KEY is
  * that PAT. CJ_WEBSITE_ID is the account's own CID ("company id"), used both
  * as the Advertiser Lookup API's `requestor-cid` parameter and as the
- * `publisherId` argument to the Contracts GraphQL query — if those turn out
- * to actually be two different identifiers on a real account, that's the
- * first thing to correct (see cjAdapter.ts's fetchContractsPage() caveat).
+ * `companyId` argument to the Product Search GraphQL queries (`products`,
+ * `shoppingProducts`, ...) — confirmed live against a real account
+ * (2026-09-21): `ads.api.cj.com/query`'s root Query type has no
+ * `publisherQueries`/`contracts` field at all (an earlier, incorrect
+ * assumption — see cjAdapter.ts's history/citations), so advertiser
+ * discovery now works by querying `products(companyId, partnerStatus:
+ * JOINED, ...)` and collecting the distinct advertisers out of the
+ * returned product rows instead.
  *
- * Sourced from CJ's own developer-portal-adjacent documentation (CJ
- * Developer Portal at developers.cj.com is unreachable from this sandbox's
- * network — see cjAdapter.ts's discoverPrograms()/fetchContractsPage() for
- * the exact citations and caveats). CJ_API_BASE_URL overrides the (now
- * secondary) Advertiser Lookup host; CJ_GRAPHQL_API_URL overrides the
- * Contracts/Product Search GraphQL host.
+ * CJ_API_BASE_URL overrides the (secondary) Advertiser Lookup host;
+ * CJ_GRAPHQL_API_URL overrides the Product Search GraphQL host — confirmed
+ * reachable and correct at its default (ads.api.cj.com/query).
  */
 const DEFAULT_ADVERTISER_LOOKUP_BASE_URL = "https://advertiser-lookup.api.cj.com";
 const DEFAULT_GRAPHQL_API_URL = "https://ads.api.cj.com/query";

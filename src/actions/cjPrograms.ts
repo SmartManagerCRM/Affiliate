@@ -52,15 +52,15 @@ export type DiscoverCjProgramsResult = {
 
 /**
  * Server-side "Discover Programs": authenticates with this account's own
- * CJ Personal Access Token and queries CJ's Contracts GraphQL API
- * (publisherQueries.contracts) for the advertisers this account actually
- * has a relationship/contract with — never a per-advertiser env var, never
- * a browser-side credential. See cjAdapter.ts's own caveat: the exact
- * GraphQL host and response field names are sourced from the account
- * owner's own live schema access, not independently confirmed against
- * developers.cj.com (blocked in this sandbox) — a wrong assumption degrades
- * to "found nothing" via defensive parsing, and the manual "Add Program"
- * form works regardless.
+ * CJ Personal Access Token and pages through CJ's Product Search GraphQL
+ * API (products, filtered to partnerStatus: JOINED) to collect the distinct
+ * advertisers this account has actually joined — never a per-advertiser env
+ * var, never a browser-side credential. CJ's GraphQL API has no dedicated
+ * "list my relationships" query, so this is the closest available
+ * equivalent; see cjAdapter.ts's class-level doc comment for the full
+ * citation trail and its trade-offs (large catalogs may need many pages). A
+ * wrong assumption about response shape degrades to "found nothing" via
+ * defensive parsing, and the manual "Add Program" form works regardless.
  */
 export async function discoverCjProgramsAction(): Promise<DiscoverCjProgramsResult> {
   const { supabase } = await requireAdmin();

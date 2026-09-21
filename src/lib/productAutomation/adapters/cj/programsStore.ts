@@ -1,6 +1,6 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
-import type { DiscoveredCjContract } from "./contracts";
+import type { DiscoveredJoinedAdvertiser } from "./joinedAdvertisers";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
 
@@ -105,26 +105,29 @@ export type CjDiscoverySummary = {
 };
 
 /**
- * Upserts discovered contracts by cj_advertiser_id — the unique constraint
- * on that column is the hard backstop, but this selects first so a
- * re-discovery of an already-known advertiser updates its name/status in
- * place instead of ever attempting a duplicate insert. Never touches
- * `active`: that's the admin's own selection (requirement: "allow
- * selecting/enabling programs"), and discovery must never silently flip it
- * either way. Never touches `program_url`/`account_status` either — the
- * Contracts query doesn't report either of those (only Advertiser Lookup
- * did), so overwriting them with null on every re-discovery would destroy
- * real values with nothing to replace them.
+ * Upserts discovered advertisers by cj_advertiser_id — the unique
+ * constraint on that column is the hard backstop, but this selects first so
+ * a re-discovery of an already-known advertiser updates its name in place
+ * instead of ever attempting a duplicate insert. Never touches `active`:
+ * that's the admin's own selection (requirement: "allow selecting/enabling
+ * programs"), and discovery must never silently flip it either way. Never
+ * touches `program_url`/`account_status` either — the `products`
+ * (partnerStatus: JOINED) query doesn't report either of those (only
+ * Advertiser Lookup did), so overwriting them with null on every
+ * re-discovery would destroy real values with nothing to replace them.
+ * `relationship_status` is always set to the literal "joined" — every
+ * advertiser this function ever sees came from a JOINED-filtered query, so
+ * that's simply what's true, not a guess at CJ's own status vocabulary.
  */
-export async function upsertDiscoveredCjPrograms(supabase: SupabaseAdmin, discovered: DiscoveredCjContract[]): Promise<CjDiscoverySummary> {
+export async function upsertDiscoveredCjPrograms(supabase: SupabaseAdmin, discovered: DiscoveredJoinedAdvertiser[]): Promise<CjDiscoverySummary> {
   let created = 0;
   let updated = 0;
 
-  for (const contract of discovered) {
+  for (const advertiser of discovered) {
     const { data: existing, error: selectError } = await supabase
       .from("cj_programs")
       .select("id")
-      .eq("cj_advertiser_id", contract.cjAdvertiserId)
+      .eq("cj_advertiser_id", advertiser.cjAdvertiserId)
       .maybeSingle();
     if (selectError) throw new Error(selectError.message);
 
@@ -132,8 +135,8 @@ export async function upsertDiscoveredCjPrograms(supabase: SupabaseAdmin, discov
       const { error } = await supabase
         .from("cj_programs")
         .update({
-          advertiser_name: contract.advertiserName,
-          relationship_status: contract.status,
+          advertiser_name: advertiser.advertiserName,
+          relationship_status: "joined",
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
@@ -141,9 +144,9 @@ export async function upsertDiscoveredCjPrograms(supabase: SupabaseAdmin, discov
       updated += 1;
     } else {
       const { error } = await supabase.from("cj_programs").insert({
-        cj_advertiser_id: contract.cjAdvertiserId,
-        advertiser_name: contract.advertiserName,
-        relationship_status: contract.status,
+        cj_advertiser_id: advertiser.cjAdvertiserId,
+        advertiser_name: advertiser.advertiserName,
+        relationship_status: "joined",
         active: false,
         discovered_at: new Date().toISOString(),
       });
