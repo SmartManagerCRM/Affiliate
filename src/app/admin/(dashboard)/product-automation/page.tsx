@@ -17,6 +17,7 @@ import { getRecentImportErrors } from "@/lib/productAutomation/errors";
 import { updateImportConfig } from "@/actions/productAutomation";
 import { DEFAULT_IMPORT_CONFIG, type ImportConfig } from "@/lib/productAutomation/importConfig";
 import { getAutomationPerformance } from "@/lib/adminAnalytics";
+import { isOptimizableImageSrc } from "@/lib/image";
 
 export default async function ProductAutomationPage({
   searchParams,
@@ -287,7 +288,14 @@ export default async function ProductAutomationPage({
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-beige">
                     {p.mainImage ? (
-                      <Image src={p.mainImage} alt="" width={36} height={36} className="h-full w-full object-cover" />
+                      <Image
+                        src={p.mainImage}
+                        alt=""
+                        width={36}
+                        height={36}
+                        unoptimized={!isOptimizableImageSrc(p.mainImage)}
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <Package className="h-4 w-4 text-espresso/30" strokeWidth={1.75} />
                     )}

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { clsx } from "clsx";
+import { isOptimizableImageSrc } from "@/lib/image";
 
 export function ProductGallery({
   images,
@@ -22,6 +23,7 @@ export function ProductGallery({
           alt={productName}
           fill
           priority
+          unoptimized={!isOptimizableImageSrc(safeImages[active])}
           sizes="(min-width: 1024px) 40vw, 90vw"
           className="object-cover"
         />
@@ -37,7 +39,7 @@ export function ProductGallery({
                 active === i ? "border-accent-gold" : "border-transparent"
               )}
             >
-              <Image src={src} alt="" fill sizes="80px" className="object-cover" />
+              <Image src={src} alt="" fill unoptimized={!isOptimizableImageSrc(src)} sizes="80px" className="object-cover" />
             </button>
           ))}
         </div>

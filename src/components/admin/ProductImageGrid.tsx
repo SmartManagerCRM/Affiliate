@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { deleteProductImage } from "@/actions/images";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
+import { isOptimizableImageSrc } from "@/lib/image";
 import type { ProductImage } from "@/lib/types";
 
 export function ProductImageGrid({
@@ -18,7 +19,14 @@ export function ProductImageGrid({
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {images.map((image) => (
         <div key={image.id} className="group relative aspect-square overflow-hidden rounded-xl bg-beige">
-          <Image src={image.url} alt={image.alt ?? ""} fill sizes="200px" className="object-cover" />
+          <Image
+            src={image.url}
+            alt={image.alt ?? ""}
+            fill
+            unoptimized={!isOptimizableImageSrc(image.url)}
+            sizes="200px"
+            className="object-cover"
+          />
           <form action={deleteProductImage} className="absolute right-1.5 top-1.5">
             <input type="hidden" name="image_id" value={image.id} />
             <input type="hidden" name="product_id" value={productId} />

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Package, MousePointerClick } from "lucide-react";
 import { DashboardCard } from "@/components/admin/dashboard/DashboardCard";
+import { isOptimizableImageSrc } from "@/lib/image";
 import type { TopProductRow } from "@/lib/adminAnalytics";
 
 export function TopProductsCard({ rows }: { rows: TopProductRow[] }) {
@@ -24,7 +25,14 @@ export function TopProductsCard({ rows }: { rows: TopProductRow[] }) {
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-beige">
                   {r.mainImage ? (
-                    <Image src={r.mainImage} alt="" width={40} height={40} className="h-full w-full object-cover" />
+                    <Image
+                      src={r.mainImage}
+                      alt=""
+                      width={40}
+                      height={40}
+                      unoptimized={!isOptimizableImageSrc(r.mainImage)}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <Package className="h-4.5 w-4.5 text-espresso/30" strokeWidth={1.75} />
                   )}

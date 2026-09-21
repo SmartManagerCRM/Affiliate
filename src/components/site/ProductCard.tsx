@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { ButtonLink, LocaleButtonLink } from "@/components/ui/Button";
 import { Link } from "@/i18n/navigation";
 import { Price } from "@/components/site/Price";
-import { placeholderImage } from "@/lib/image";
+import { placeholderImage, isOptimizableImageSrc } from "@/lib/image";
 import type { ProductCardData } from "@/lib/types";
 
 export function ProductCard({ product }: { product: ProductCardData }) {
@@ -25,6 +25,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           src={image}
           alt={product.name}
           fill
+          unoptimized={!isOptimizableImageSrc(image)}
           sizes="(min-width: 1024px) 25vw, (min-width: 640px) 40vw, 90vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
