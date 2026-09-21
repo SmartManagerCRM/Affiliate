@@ -1,6 +1,12 @@
 import { Field, TextInput, TextArea, Checkbox } from "@/components/admin/FormField";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import type { Retailer } from "@/lib/types";
+import { CartConfigFields } from "@/components/admin/CartConfigFields";
+import type { CartLinkType, Retailer } from "@/lib/types";
+
+function formatCartConfig(cartConfig: Retailer["cart_config"] | undefined): string {
+  if (!cartConfig || typeof cartConfig !== "object" || Array.isArray(cartConfig)) return "";
+  return Object.keys(cartConfig).length > 0 ? JSON.stringify(cartConfig, null, 2) : "";
+}
 
 export function RetailerForm({
   retailer,
@@ -39,6 +45,13 @@ export function RetailerForm({
         <TextArea name="description" defaultValue={retailer?.description ?? ""} />
       </Field>
       <Checkbox name="active" label="Active" defaultChecked={retailer?.active ?? true} />
+
+      <CartConfigFields
+        supportsMultiProductCart={retailer?.supports_multi_product_cart ?? false}
+        cartLinkType={(retailer?.cart_link_type as CartLinkType | undefined) ?? "none"}
+        cartLinkTemplate={retailer?.cart_link_template ?? ""}
+        cartConfig={formatCartConfig(retailer?.cart_config)}
+      />
 
       <div className="mt-2 flex gap-3">
         <Button type="submit">{retailer ? "Save changes" : "Create retailer"}</Button>
