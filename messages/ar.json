@@ -147,7 +147,10 @@
     "itemCount": "{count, plural, one {عنصر واحد} other {# عناصر}}",
     "emptyTitle": "سلتك فارغة.",
     "emptySubtitle": "استكشف منتجات مختارة لأجل عملك.",
-    "exploreActivity": "استكشف {name}"
+    "exploreActivity": "استكشف {name}",
+    "shopAtRetailer": "تسوّق من المتجر",
+    "shopNItemsAt": "{count, plural, one {تسوّق عنصرًا واحدًا من {retailer}} other {تسوّق # عناصر من {retailer}}}",
+    "individualNotice": "هذه العناصر متوفرة لدى نفس المتجر، لكن يجب إضافتها بشكل منفصل."
   },
   "search": {
     "title": "البحث عن المنتجات",

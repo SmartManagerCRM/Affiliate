@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { ButtonLink } from "@/components/ui/Button";
 import { Price } from "@/components/site/Price";
 import { useCart } from "@/components/site/CartProvider";
 import { updateCartItemQuantityAction, removeCartItemAction } from "@/actions/cart";
@@ -53,22 +54,29 @@ export function CartItemRow({ item }: { item: CartItemView }) {
 
   return (
     <div className="flex flex-col gap-4 border-b border-espresso/8 py-5 sm:flex-row sm:items-center last:border-b-0">
-      <Link href={`/product/${item.product_slug}`} className="flex shrink-0 items-center gap-4 sm:w-[38%]">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-beige">
-          <Image
-            src={image}
-            alt={item.product_name}
-            fill
-            unoptimized={!isOptimizableImageSrc(image)}
-            className="object-cover"
-          />
-        </div>
-        <div className="min-w-0">
-          <p className="truncate font-medium text-espresso">{item.product_name}</p>
-          <p className="text-sm text-espresso/50">{item.retailer_name}</p>
-          {!item.is_available && <p className="mt-0.5 text-xs font-medium text-red-600">{t("unavailable")}</p>}
-        </div>
-      </Link>
+      <div className="flex shrink-0 flex-col gap-2 sm:w-[38%]">
+        <Link href={`/product/${item.product_slug}`} className="flex items-center gap-4">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-beige">
+            <Image
+              src={image}
+              alt={item.product_name}
+              fill
+              unoptimized={!isOptimizableImageSrc(image)}
+              className="object-cover"
+            />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-espresso">{item.product_name}</p>
+            <p className="text-sm text-espresso/50">{item.retailer_name}</p>
+            {!item.is_available && <p className="mt-0.5 text-xs font-medium text-red-600">{t("unavailable")}</p>}
+          </div>
+        </Link>
+        {item.is_available && (
+          <ButtonLink href={`/go/${item.offer_id}`} size="sm" variant="outline" className="self-start">
+            {t("shopAtRetailer")}
+          </ButtonLink>
+        )}
+      </div>
 
       <div className="flex flex-1 items-center justify-between gap-4 sm:justify-end">
         <Price amount={price} currency={currency} compact className="w-24 text-sm font-medium text-espresso sm:text-center" />

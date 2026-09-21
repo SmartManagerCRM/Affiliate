@@ -147,7 +147,10 @@
     "itemCount": "{count, plural, one {# article} other {# articles}}",
     "emptyTitle": "Votre panier est vide.",
     "emptySubtitle": "Découvrez des produits sélectionnés pour votre entreprise.",
-    "exploreActivity": "Découvrir {name}"
+    "exploreActivity": "Découvrir {name}",
+    "shopAtRetailer": "Acheter chez ce revendeur",
+    "shopNItemsAt": "{count, plural, one {Acheter # article chez {retailer}} other {Acheter # articles chez {retailer}}}",
+    "individualNotice": "Ces articles sont disponibles chez le même revendeur, mais doivent être ajoutés individuellement."
   },
   "search": {
     "title": "Rechercher des produits",

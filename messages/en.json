@@ -147,7 +147,10 @@
     "itemCount": "{count, plural, one {# item} other {# items}}",
     "emptyTitle": "Your cart is empty.",
     "emptySubtitle": "Explore products selected for your business.",
-    "exploreActivity": "Explore {name}"
+    "exploreActivity": "Explore {name}",
+    "shopAtRetailer": "Shop at Retailer",
+    "shopNItemsAt": "{count, plural, one {Shop # Item at {retailer}} other {Shop # Items at {retailer}}}",
+    "individualNotice": "These items are available from the same retailer, but they need to be added individually."
   },
   "search": {
     "title": "Search Products",
