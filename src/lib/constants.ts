@@ -12,5 +12,9 @@ export const AFFILIATE_DISCLOSURE =
 export const REF_COOKIE_NAME = "si_ref";
 export const REF_COOKIE_MAX_AGE_DAYS = 30;
 
+/** httpOnly cookie holding the anonymous Smart Cart session token. Created lazily on first "Add to Cart", never on a bare pageview. */
+export const CART_SESSION_COOKIE_NAME = "si_cart";
+export const CART_SESSION_COOKIE_MAX_AGE_DAYS = 30;
+
 export const ADMITAD_VERIFICATION_CONTENT =
   "7b4225f7-5ec5-42da-a529-8bcdf03047c6";

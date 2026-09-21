@@ -275,6 +275,10 @@ export async function getRetailersForProducts(
       currency: null,
       active: true,
       description: null,
+      supports_multi_product_cart: false,
+      cart_link_type: "none",
+      cart_link_template: null,
+      cart_config: {},
       created_at: "",
       updated_at: "",
     });

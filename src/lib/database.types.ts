@@ -250,6 +250,85 @@ export type Database = {
         }
         Relationships: []
       }
+      cart_events: {
+        Row: {
+          cart_item_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          offer_id: string | null
+          product_id: string | null
+          retailer_id: string | null
+          session_id: string
+        }
+        Insert: {
+          cart_item_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          offer_id?: string | null
+          product_id?: string | null
+          retailer_id?: string | null
+          session_id: string
+        }
+        Update: {
+          cart_item_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          offer_id?: string | null
+          product_id?: string | null
+          retailer_id?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_events_cart_item_id_fkey"
+            columns: ["cart_item_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_cart_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_events_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_events_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_events_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_events_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           active: boolean
@@ -748,13 +827,6 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "product_import_sources_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "admitad_programs"
-            referencedColumns: ["id"]
-          },
         ]
       }
       product_sync_lock: {
@@ -827,13 +899,6 @@ export type Database = {
             columns: ["network_id"]
             isOneToOne: false
             referencedRelation: "affiliate_networks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_sync_runs_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "admitad_programs"
             referencedColumns: ["id"]
           },
         ]
@@ -909,6 +974,9 @@ export type Database = {
       retailers: {
         Row: {
           active: boolean
+          cart_config: Json
+          cart_link_template: string | null
+          cart_link_type: string
           country: string | null
           created_at: string
           currency: string | null
@@ -917,11 +985,15 @@ export type Database = {
           logo: string | null
           name: string
           slug: string
+          supports_multi_product_cart: boolean
           updated_at: string
           website: string | null
         }
         Insert: {
           active?: boolean
+          cart_config?: Json
+          cart_link_template?: string | null
+          cart_link_type?: string
           country?: string | null
           created_at?: string
           currency?: string | null
@@ -930,11 +1002,15 @@ export type Database = {
           logo?: string | null
           name: string
           slug: string
+          supports_multi_product_cart?: boolean
           updated_at?: string
           website?: string | null
         }
         Update: {
           active?: boolean
+          cart_config?: Json
+          cart_link_template?: string | null
+          cart_link_type?: string
           country?: string | null
           created_at?: string
           currency?: string | null
@@ -943,10 +1019,118 @@ export type Database = {
           logo?: string | null
           name?: string
           slug?: string
+          supports_multi_product_cart?: boolean
           updated_at?: string
           website?: string | null
         }
         Relationships: []
+      }
+      shopping_cart_items: {
+        Row: {
+          created_at: string
+          currency_at_add: string
+          id: string
+          offer_id: string
+          price_at_add: number
+          product_id: string
+          quantity: number
+          retailer_id: string
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency_at_add: string
+          id?: string
+          offer_id: string
+          price_at_add: number
+          product_id: string
+          quantity?: number
+          retailer_id: string
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency_at_add?: string
+          id?: string
+          offer_id?: string
+          price_at_add?: number
+          product_id?: string
+          quantity?: number
+          retailer_id?: string
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_cart_items_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_cart_items_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_cart_items_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_cart_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          session_token: string
+          traffic_source_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          session_token: string
+          traffic_source_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          session_token?: string
+          traffic_source_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_sessions_traffic_source_id_fkey"
+            columns: ["traffic_source_id"]
+            isOneToOne: false
+            referencedRelation: "traffic_sources"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       site_settings: {
         Row: {
@@ -1046,6 +1230,72 @@ export type Database = {
       }
     }
     Functions: {
+      cart_add_item: {
+        Args: {
+          p_offer_id: string
+          p_product_id: string
+          p_quantity?: number
+          p_ref?: string
+          p_session_token: string
+        }
+        Returns: {
+          cart_item_id: string
+          quantity: number
+        }[]
+      }
+      cart_clear: { Args: { p_session_token: string }; Returns: undefined }
+      cart_ensure_session: {
+        Args: { p_ref?: string; p_session_token: string }
+        Returns: string
+      }
+      cart_get_items: {
+        Args: { p_session_token: string }
+        Returns: {
+          cart_item_id: string
+          cart_link_type: string
+          created_at: string
+          currency_at_add: string
+          current_availability: string
+          current_currency: string
+          current_original_price: number
+          current_price: number
+          is_available: boolean
+          offer_id: string
+          price_at_add: number
+          product_id: string
+          product_main_image: string
+          product_name: string
+          product_slug: string
+          quantity: number
+          retailer_id: string
+          retailer_logo: string
+          retailer_name: string
+          retailer_slug: string
+          supports_multi_product_cart: boolean
+        }[]
+      }
+      cart_log_shop_click: {
+        Args: {
+          p_metadata?: Json
+          p_offer_id: string
+          p_product_id: string
+          p_retailer_id: string
+          p_session_token: string
+        }
+        Returns: undefined
+      }
+      cart_remove_item: {
+        Args: { p_cart_item_id: string; p_session_token: string }
+        Returns: undefined
+      }
+      cart_update_item_quantity: {
+        Args: {
+          p_cart_item_id: string
+          p_quantity: number
+          p_session_token: string
+        }
+        Returns: undefined
+      }
       is_admin: { Args: never; Returns: boolean }
       record_offer_click: {
         Args: {
