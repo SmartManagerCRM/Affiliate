@@ -6,6 +6,7 @@ function makeConfig(overrides: Partial<CjConfig> = {}): CjConfig {
   return {
     apiKey: "test-pat",
     websiteId: "1234567",
+    pid: "1234567",
     advertiserLookupBaseUrl: "https://advertiser-lookup.api.cj.test",
     graphqlApiUrl: "https://ads.api.cj.test/query",
     ...overrides,
@@ -261,18 +262,98 @@ describe("CjAdapter", () => {
     });
   });
 
-  describe("product synchronization — deliberately not implemented yet", () => {
-    it("fetchProducts throws a clear not-implemented error", async () => {
+  describe("product synchronization", () => {
+    const PRODUCT_ROW = {
+      id: "prod-1",
+      title: "Wireless Headphones",
+      description: "Noise-cancelling",
+      brand: "Acme Audio",
+      advertiserName: "Acme Store",
+      targetCountry: "US",
+      imageLink: "https://img.example/main.jpg",
+      additionalImageLink: [],
+      isDeleted: false,
+      price: { amount: 49.99, currency: "USD" },
+      salePrice: null,
+      link: "https://acme.example/products/headphones", // must never end up as affiliateUrl
+      linkCode: { clickUrl: "https://www.anrdoezrs.net/click-123" },
+    };
+
+    function productsFeedResponse(resultList: unknown[], totalCount: number | null = null) {
+      return jsonResponse({ data: { products: { totalCount, resultList } } });
+    }
+
+    it("fetchProducts throws when no advertiserId is provided", async () => {
       const adapter = new CjAdapter({ config: makeConfig() });
-      await expect(adapter.fetchProducts({})).rejects.toThrow(/not implemented/i);
+      await expect(adapter.fetchProducts({})).rejects.toThrow(/advertiser id/i);
     });
 
-    it("normalize throws a clear not-implemented error", () => {
-      const adapter = new CjAdapter({ config: makeConfig() });
-      expect(() => adapter.normalize({})).toThrow(/not implemented/i);
+    it("fetchProducts throws when unconfigured", async () => {
+      const adapter = new CjAdapter({ config: makeConfig({ apiKey: null }) });
+      await expect(adapter.fetchProducts({ advertiserId: "1111" })).rejects.toThrow(/CJ_API_KEY/);
     });
 
-    it("fetchOffers returns an empty array rather than throwing (unused by the pipeline today)", async () => {
+    it("sends companyId, partnerIds, and pid as GraphQL variables", async () => {
+      const fetchImpl = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        void url;
+        void init;
+        return productsFeedResponse([PRODUCT_ROW], 1);
+      });
+      const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
+
+      await adapter.fetchProducts({ advertiserId: "1111" });
+
+      const [, init] = fetchImpl.mock.calls[0];
+      const body = JSON.parse(init?.body as string);
+      expect(body.variables.companyId).toBe("1234567");
+      expect(body.variables.partnerIds).toEqual(["1111"]);
+      expect(body.variables.pid).toBe("1234567"); // pid defaults to websiteId when CJ_PID isn't set
+      expect(body.query).toContain("linkCode(pid: $pid)");
+    });
+
+    it("maps products with the CJ tracking URL as affiliateUrl, never the raw merchant link", async () => {
+      const fetchImpl = vi.fn(async () => productsFeedResponse([PRODUCT_ROW], 1));
+      const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
+
+      const result = await adapter.fetchProducts({ advertiserId: "1111" });
+
+      expect(result.products).toHaveLength(1);
+      expect(result.products[0].offers[0].affiliateUrl).toBe("https://www.anrdoezrs.net/click-123");
+      expect(result.products[0].offers[0].affiliateUrl).not.toBe(PRODUCT_ROW.link);
+      expect(result.hasMore).toBe(false);
+      expect(result.nextCursor).toBeNull();
+    });
+
+    it("paginates using totalCount and the cursor/offset convention", async () => {
+      let calls = 0;
+      const fetchImpl = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        void url;
+        void init;
+        calls += 1;
+        return productsFeedResponse([PRODUCT_ROW], 150);
+      });
+      const adapter = new CjAdapter({ config: makeConfig(), fetchImpl });
+
+      const first = await adapter.fetchProducts({ advertiserId: "1111", limit: 100, cursor: null });
+      expect(first.hasMore).toBe(true);
+      expect(first.nextCursor).toBe("1");
+
+      const second = await adapter.fetchProducts({ advertiserId: "1111", limit: 100, cursor: first.nextCursor });
+      const [, init] = fetchImpl.mock.calls[1];
+      const body = JSON.parse(init?.body as string);
+      expect(body.variables.offset).toBe(1);
+      expect(calls).toBe(2);
+      void second;
+    });
+
+    it("normalize() maps a raw CJ product row the same way fetchProducts does", () => {
+      const adapter = new CjAdapter({ config: makeConfig() });
+      const product = adapter.normalize(PRODUCT_ROW);
+      expect(product.externalProductId).toBe("prod-1");
+      expect(product.offers[0].affiliateUrl).toBe("https://www.anrdoezrs.net/click-123");
+    });
+
+    it("fetchOffers returns an empty array rather than throwing (offers come back inline with fetchProducts)", async () => {
       const adapter = new CjAdapter({ config: makeConfig() });
       await expect(adapter.fetchOffers("anything")).resolves.toEqual([]);
     });

@@ -58,6 +58,13 @@ export async function listCjPrograms(supabase: SupabaseAdmin): Promise<CjProgram
   return (data ?? []).map(toProgram);
 }
 
+/** Active programs — exactly what the sync pipeline iterates. Unlike Admitad's per-feed-URL model, every CJ program's cj_advertiser_id is enough to sync (the products() query is filtered by it directly), so there's no extra "has a feed configured" condition to check. */
+export async function listSyncableCjPrograms(supabase: SupabaseAdmin): Promise<CjProgram[]> {
+  const { data, error } = await supabase.from("cj_programs").select(SELECT).eq("active", true).order("advertiser_name");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(toProgram);
+}
+
 export async function getCjProgram(supabase: SupabaseAdmin, id: string): Promise<CjProgram | null> {
   const { data, error } = await supabase.from("cj_programs").select(SELECT).eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
@@ -156,4 +163,21 @@ export async function upsertDiscoveredCjPrograms(supabase: SupabaseAdmin, discov
   }
 
   return { found: discovered.length, created, updated };
+}
+
+export async function recordCjProgramSyncResult(
+  supabase: SupabaseAdmin,
+  programId: string,
+  result: { status: "completed" | "failed"; errorMessage?: string | null }
+): Promise<void> {
+  const { error } = await supabase
+    .from("cj_programs")
+    .update({
+      last_synced_at: new Date().toISOString(),
+      last_sync_status: result.status,
+      last_sync_error: result.status === "failed" ? (result.errorMessage ?? "Unknown error") : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", programId);
+  if (error) throw new Error(error.message);
 }

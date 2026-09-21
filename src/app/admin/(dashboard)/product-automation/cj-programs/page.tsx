@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import { DiscoverCjProgramsButton } from "@/components/admin/DiscoverCjProgramsButton";
+import { SyncCjButton } from "@/components/admin/SyncCjButton";
 import { listCjPrograms } from "@/lib/productAutomation/adapters/cj/programsStore";
 import { toggleCjProgramActiveAction, deleteCjProgramAction } from "@/actions/cjPrograms";
 import { hasCjCredentials, getCjConfig } from "@/lib/productAutomation/adapters/cj/config";
@@ -23,7 +24,7 @@ export default async function CjProgramsPage({
     <div>
       <PageHeader
         title="CJ Programs"
-        description="Every advertiser this CJ account has a relationship with. Adding one here never requires a new Hostinger environment variable — only CJ_API_KEY and CJ_WEBSITE_ID are account-level env vars. Product synchronization isn't built yet — this page only covers connection, discovery, and selecting which advertisers to enable."
+        description="Every advertiser this CJ account has a relationship with. Adding one here never requires a new Hostinger environment variable — only CJ_API_KEY and CJ_WEBSITE_ID are account-level env vars. Enable an advertiser below, then use Sync CJ (or Sync All) to import its products."
         action={
           <ButtonLink href="/admin/product-automation/cj-programs/new" variant="outline">
             + Add Advertiser Manually
@@ -40,8 +41,9 @@ export default async function CjProgramsPage({
         </p>
       )}
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-wrap gap-6">
         <DiscoverCjProgramsButton />
+        <SyncCjButton />
       </div>
 
       {programs.length > 0 ? (

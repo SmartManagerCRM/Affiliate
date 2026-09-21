@@ -42,6 +42,8 @@ export type FetchProductsParams = {
   limit?: number;
   /** Which feed to read, for a network (like Admitad) whose products live behind many per-program feed URLs rather than one fixed endpoint. Adapters that only ever have one feed can ignore this. */
   feedUrl?: string;
+  /** Which advertiser/program to read, for a network (like CJ) whose product API is queried per-advertiser rather than via a feed URL. Adapters that don't need this can ignore it. */
+  advertiserId?: string;
 };
 
 export type FetchProductsResult = {

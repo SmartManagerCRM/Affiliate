@@ -4,6 +4,8 @@ import { NETWORK_REGISTRY, isNetworkConfigured } from "../registry";
 import { getAdapterForNetwork } from "../adapterFactory";
 import { AdmitadAdapter } from "../adapters/admitad/admitadAdapter";
 import { listSyncableAdmitadPrograms, recordProgramSyncResult } from "../adapters/admitad/programsStore";
+import { CjAdapter } from "../adapters/cj/cjAdapter";
+import { listSyncableCjPrograms, recordCjProgramSyncResult } from "../adapters/cj/programsStore";
 import { SupabaseSyncStore } from "../supabaseSyncStore";
 import { runNetworkSync } from "../syncEngine";
 import { isClassificationConfigured, AnthropicClassificationClient } from "../classification/anthropicClient";
@@ -61,6 +63,13 @@ async function runSyncPipeline(supabase: SupabaseAdmin): Promise<SyncAllResult> 
   for (const entry of connected) {
     if (entry.key === "admitad") {
       const outcome = await runAdmitadPrograms(supabase, store, entry.label);
+      ranNetworks += outcome.ranPrograms;
+      results.push(outcome.message);
+      continue;
+    }
+
+    if (entry.key === "cj") {
+      const outcome = await runCjPrograms(supabase, store, entry.label);
       ranNetworks += outcome.ranPrograms;
       results.push(outcome.message);
       continue;
@@ -153,6 +162,53 @@ async function runAdmitadPrograms(
     const outcome = await runNetworkSync(store, networkRow.id, adapter, { feedUrl: program.feedUrl, programId: program.id });
     ranPrograms += 1;
     await recordProgramSyncResult(supabase, program.id, { status: outcome.status, errorMessage: outcome.errorMessage });
+    parts.push(
+      outcome.status === "completed"
+        ? `${program.advertiserName}: imported ${outcome.productsImported}, updated ${outcome.productsUpdated}, rejected ${outcome.productsRejected} (of ${outcome.productsFound} found)`
+        : `${program.advertiserName}: sync failed — ${outcome.errorMessage}`
+    );
+  }
+
+  return { ranPrograms, message: `${label} [${parts.join("; ")}].` };
+}
+
+/**
+ * Syncs every active CJ program (advertiser), sharing ONE CjAdapter instance
+ * across all of them — mirrors runAdmitadPrograms() above, but filters by
+ * advertiserId (cj_advertiser_id) per call instead of a feed URL, since CJ's
+ * product API has no per-program feed concept. Each program's own
+ * cj_programs row records its own last_synced_at/last_sync_status
+ * afterward, independent of the others — one advertiser failing never stops
+ * the rest from syncing. Exported so the standalone "Sync CJ" admin action
+ * (actions/cjPrograms.ts) can run exactly this same path without going
+ * through the full Sync All pipeline (classification, auto-update, Admitad).
+ */
+export async function runCjPrograms(
+  supabase: SupabaseAdmin,
+  store: SupabaseSyncStore,
+  label: string
+): Promise<{ ranPrograms: number; message: string }> {
+  const { data: networkRow } = await supabase.from("affiliate_networks").select("id").ilike("name", label).maybeSingle();
+  if (!networkRow) {
+    return { ranPrograms: 0, message: `${label}: connected, but no matching affiliate_networks row was found.` };
+  }
+
+  const programs = await listSyncableCjPrograms(supabase);
+  if (programs.length === 0) {
+    return {
+      ranPrograms: 0,
+      message: `${label}: connected, but no advertiser is enabled yet — enable one in CJ Programs.`,
+    };
+  }
+
+  const adapter = new CjAdapter();
+  const parts: string[] = [];
+  let ranPrograms = 0;
+
+  for (const program of programs) {
+    const outcome = await runNetworkSync(store, networkRow.id, adapter, { advertiserId: program.cjAdvertiserId, programId: program.id });
+    ranPrograms += 1;
+    await recordCjProgramSyncResult(supabase, program.id, { status: outcome.status, errorMessage: outcome.errorMessage });
     parts.push(
       outcome.status === "completed"
         ? `${program.advertiserName}: imported ${outcome.productsImported}, updated ${outcome.productsUpdated}, rejected ${outcome.productsRejected} (of ${outcome.productsFound} found)`

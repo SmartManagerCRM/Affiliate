@@ -5,6 +5,9 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { CjAdapter } from "@/lib/productAutomation/adapters/cj/cjAdapter";
 import { createCjProgram, setCjProgramActive, deleteCjProgram, upsertDiscoveredCjPrograms } from "@/lib/productAutomation/adapters/cj/programsStore";
+import { acquireSyncLock, releaseSyncLock } from "@/lib/productAutomation/scheduler/syncLock";
+import { runCjPrograms } from "@/lib/productAutomation/scheduler/runScheduledSync";
+import { SupabaseSyncStore } from "@/lib/productAutomation/supabaseSyncStore";
 
 const BASE_PATH = "/admin/product-automation/cj-programs";
 
@@ -79,5 +82,41 @@ export async function discoverCjProgramsAction(): Promise<DiscoverCjProgramsResu
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error.";
     return { message: `Discovery failed: ${message}` };
+  }
+}
+
+export type SyncCjResult = {
+  message: string;
+};
+
+/**
+ * Server-side "Sync CJ": runs product synchronization for every active CJ
+ * program, sharing the same runCjPrograms() path "Sync All" uses for CJ —
+ * never a separate, less-careful implementation — but skips the pipeline's
+ * classification/auto-update stages, since those are shared across every
+ * network, not CJ-specific. Guarded by the same product_sync_lock mutex as
+ * "Sync All" (syncLock.ts) so the two can never race the same catalog.
+ */
+export async function syncCjNetworkAction(): Promise<SyncCjResult> {
+  const { supabase, admin } = await requireAdmin();
+
+  const lock = await acquireSyncLock(supabase, { lockedBy: `admin:${admin.email}:cj` });
+  if (!lock.acquired) {
+    return { message: `Sync skipped: ${lock.reason}` };
+  }
+
+  try {
+    const store = new SupabaseSyncStore(supabase);
+    const outcome = await runCjPrograms(supabase, store, "CJ");
+
+    revalidatePath("/admin/product-automation");
+    revalidatePath("/admin/product-automation/history");
+    revalidatePath(BASE_PATH);
+    revalidatePath("/admin/products");
+    revalidatePath("/admin/offers");
+
+    return { message: outcome.message };
+  } finally {
+    await releaseSyncLock(supabase);
   }
 }

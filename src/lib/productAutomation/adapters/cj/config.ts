@@ -26,6 +26,16 @@ import "server-only";
  * CJ_API_BASE_URL overrides the (secondary) Advertiser Lookup host;
  * CJ_GRAPHQL_API_URL overrides the Product Search GraphQL host — confirmed
  * reachable and correct at its default (ads.api.cj.com/query).
+ *
+ * PID — used only for product synchronization's `linkCode(pid: ...)` call,
+ * which is what actually returns a CJ-tracked click URL (see
+ * adapters/cj/products.ts's module doc comment for why `Product.link` itself
+ * is NOT usable as the affiliate/buy-now URL). CJ's own schema gives no way
+ * to look up an account's registered "property"/website PID via this API,
+ * and many single-property accounts use the same identifier for both their
+ * CID and their PID, so this defaults to CJ_WEBSITE_ID — override with
+ * CJ_PID if a real sync run shows generated links are wrong (e.g. pointing
+ * at the wrong property) for a multi-property account.
  */
 const DEFAULT_ADVERTISER_LOOKUP_BASE_URL = "https://advertiser-lookup.api.cj.com";
 const DEFAULT_GRAPHQL_API_URL = "https://ads.api.cj.com/query";
@@ -33,14 +43,17 @@ const DEFAULT_GRAPHQL_API_URL = "https://ads.api.cj.com/query";
 export type CjConfig = {
   apiKey: string | null;
   websiteId: string | null;
+  pid: string | null;
   advertiserLookupBaseUrl: string;
   graphqlApiUrl: string;
 };
 
 export function getCjConfig(): CjConfig {
+  const websiteId = process.env.CJ_WEBSITE_ID?.trim() || null;
   return {
     apiKey: process.env.CJ_API_KEY?.trim() || null,
-    websiteId: process.env.CJ_WEBSITE_ID?.trim() || null,
+    websiteId,
+    pid: process.env.CJ_PID?.trim() || websiteId,
     advertiserLookupBaseUrl: process.env.CJ_API_BASE_URL?.trim() || DEFAULT_ADVERTISER_LOOKUP_BASE_URL,
     graphqlApiUrl: process.env.CJ_GRAPHQL_API_URL?.trim() || DEFAULT_GRAPHQL_API_URL,
   };

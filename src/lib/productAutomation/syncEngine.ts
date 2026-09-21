@@ -46,7 +46,9 @@ const MAX_PAGES = 500; // safety bound against a misbehaving adapter looping for
 export type RunNetworkSyncOptions = {
   /** Which feed to read for this run — required for a program-scoped network like Admitad; adapters with a single fixed feed ignore it. */
   feedUrl?: string;
-  /** Which admitad_programs row (or equivalent) this run is for, so every candidate/error/run it produces is traceable back to its program. Null for a network with no program concept. */
+  /** Which advertiser to read for this run — required for a program-scoped network like CJ; adapters that don't need it ignore it. */
+  advertiserId?: string;
+  /** Which admitad_programs/cj_programs row (or equivalent) this run is for, so every candidate/error/run it produces is traceable back to its program. Null for a network with no program concept. */
   programId?: string | null;
 };
 
@@ -76,7 +78,7 @@ export async function runNetworkSync(
         throw new Error(`Exceeded maximum page count (${MAX_PAGES}) — the adapter's cursor may be stuck.`);
       }
 
-      const page = await adapter.fetchProducts({ cursor, feedUrl: options.feedUrl });
+      const page = await adapter.fetchProducts({ cursor, feedUrl: options.feedUrl, advertiserId: options.advertiserId });
       productsFound += page.products.length;
 
       for (const product of page.products) {

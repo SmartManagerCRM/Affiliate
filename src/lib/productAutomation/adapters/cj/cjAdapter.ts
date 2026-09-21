@@ -12,10 +12,12 @@ import { getCjConfig, hasCjCredentials, type CjConfig } from "./config";
 import { withRetry, errorForResponse, fetchWithTimeout, HttpStatusError } from "../../httpRetry";
 import { parseAdvertiserLookupResponse, type DiscoveredCjAdvertiser } from "./discovery";
 import { parseProductsResponse, extractGraphQLErrorMessage, type DiscoveredJoinedAdvertiser } from "./joinedAdvertisers";
+import { normalizeProductRow, parseProductsFeedPage } from "./products";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const PRODUCTS_PAGE_SIZE = 100;
 const MAX_PRODUCT_PAGES = 500; // safety bound — a large catalog may need many pages just to see every joined advertiser once
+const PRODUCTS_FEED_PAGE_SIZE = 100;
 
 /**
  * Deliberately minimal: only the two fields discoverPrograms() needs to
@@ -31,6 +33,39 @@ const PRODUCTS_QUERY = `
       resultList {
         advertiserId
         advertiserName
+      }
+    }
+  }
+`;
+
+/**
+ * Full product record for synchronization — filtered to one advertiser
+ * (`partnerIds`) at a time, matching the sync engine's one-program-per-run
+ * model (see runScheduledSync.ts's runCjPrograms()). Every selected field is
+ * one confirmed to exist on the `Product` interface by the same verified
+ * schema archive cited in products.ts — see that file for the full
+ * citation trail and, critically, why `link` is deliberately NOT selected
+ * for use as the affiliate URL (`linkCode.clickUrl` is — see products.ts).
+ * `pid` is required by `linkCode` itself; sourced from config.ts's PID
+ * (defaults to CJ_WEBSITE_ID, overridable via CJ_PID).
+ */
+const PRODUCTS_FEED_QUERY = `
+  query FetchAdvertiserProducts($companyId: ID!, $partnerIds: [ID!], $pid: ID!, $limit: Int, $offset: Int) {
+    products(companyId: $companyId, partnerIds: $partnerIds, partnerStatus: JOINED, limit: $limit, offset: $offset) {
+      totalCount
+      resultList {
+        id
+        title
+        description
+        brand
+        advertiserName
+        targetCountry
+        imageLink
+        additionalImageLink
+        isDeleted
+        price { amount currency }
+        salePrice { amount currency }
+        linkCode(pid: $pid) { clickUrl }
       }
     }
   }
@@ -86,13 +121,14 @@ export type CjAdapterOptions = {
  * to "found fewer/no advertisers this page", and the admin UI's manual "Add
  * Program" form works regardless.
  *
- * Product synchronization (fetchProducts/fetchOffers/normalize) is
- * intentionally NOT implemented yet — this phase only covers
- * authentication, connection testing, and advertiser/program discovery.
- * Calling fetchProducts()/normalize() throws a clear "not implemented"
- * error rather than ever fabricating product data. (discoverPrograms()
- * happens to also query the `products` field, but only ever reads
- * advertiserId/advertiserName off it — never a full product record.)
+ * PRODUCT SYNCHRONIZATION. fetchProducts() queries the same `products`
+ * field as discoverPrograms(), but filtered to one advertiser at a time via
+ * `partnerIds` (the sync engine calls it once per active cj_programs row —
+ * see runScheduledSync.ts's runCjPrograms()) and selecting full product
+ * fields instead of just the advertiser identity. See products.ts's module
+ * doc comment for the field-by-field mapping and, most importantly, why the
+ * buy-now URL comes from `linkCode.clickUrl` and never from `link` (the
+ * merchant's own untracked landing page).
  */
 export class CjAdapter implements AffiliateNetworkAdapter {
   readonly key = "cj";
@@ -167,22 +203,47 @@ export class CjAdapter implements AffiliateNetworkAdapter {
     return parseAdvertiserLookupResponse(xml);
   }
 
-  async fetchProducts(_params: FetchProductsParams): Promise<FetchProductsResult> {
-    void _params;
-    throw new Error(
-      "CJ product synchronization is not implemented yet — this phase only covers authentication, connection testing, and advertiser discovery."
-    );
+  /**
+   * Pulls one page of a single advertiser's products, mapped to
+   * NormalizedProduct — the sync engine (syncEngine.ts) calls this
+   * repeatedly per program until hasMore is false, exactly like Admitad's
+   * fetchProducts() pages through one feed. `params.advertiserId` is
+   * required here (set by runCjPrograms() from the program's
+   * cj_advertiser_id) since CJ's product API has no single fixed feed to
+   * fall back to.
+   */
+  async fetchProducts(params: FetchProductsParams): Promise<FetchProductsResult> {
+    if (!params.advertiserId) {
+      throw new Error("No advertiser id was provided for this CJ program — check its cj_programs row.");
+    }
+    if (!hasCjCredentials(this.config)) {
+      throw new Error("CJ is not configured: set CJ_API_KEY and CJ_WEBSITE_ID.");
+    }
+
+    const limit = params.limit ?? PRODUCTS_FEED_PAGE_SIZE;
+    const offset = params.cursor ? Number(params.cursor) : 0;
+
+    const page = await this.fetchAdvertiserProductsPage({ advertiserId: params.advertiserId, limit, offset });
+
+    const nextOffset = offset + page.products.length;
+    const knowsTotal = page.totalCount !== null;
+    const hasMore = knowsTotal ? nextOffset < (page.totalCount as number) : page.products.length === limit;
+
+    return {
+      products: page.products,
+      hasMore,
+      nextCursor: hasMore ? String(nextOffset) : null,
+    };
   }
 
-  /** Unused until product sync exists — matches the safe empty-array default AdmitadAdapter uses for the same currently-unused interface method. */
+  /** Unused by the current pipeline (offers come back inline with each product from fetchProducts) — matches AdmitadAdapter's own comment on the same currently-unused interface method. */
   async fetchOffers(_externalProductId: string): Promise<NormalizedOffer[]> {
     void _externalProductId;
     return [];
   }
 
-  normalize(_raw: unknown): NormalizedProduct {
-    void _raw;
-    throw new Error("CJ product normalization is not implemented yet.");
+  normalize(raw: unknown): NormalizedProduct {
+    return normalizeProductRow(raw);
   }
 
   private async fetchJoinedProductsPage(params: { limit: number; offset: number }) {
@@ -217,6 +278,42 @@ export class CjAdapter implements AffiliateNetworkAdapter {
     if (errorMessage) throw new Error(`CJ products query failed: ${errorMessage}`);
 
     return parseProductsResponse(json);
+  }
+
+  private async fetchAdvertiserProductsPage(params: { advertiserId: string; limit: number; offset: number }) {
+    const body = JSON.stringify({
+      query: PRODUCTS_FEED_QUERY,
+      variables: {
+        companyId: this.config.websiteId,
+        partnerIds: [params.advertiserId],
+        pid: this.config.pid,
+        limit: params.limit,
+        offset: params.offset,
+      },
+    });
+
+    const json = await withRetry(async () => {
+      const response = await fetchWithTimeout(
+        this.fetchImpl,
+        this.config.graphqlApiUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.config.apiKey}`,
+          },
+          body,
+        },
+        this.timeoutMs
+      );
+      if (!response.ok) throw await this.errorForGraphQLResponse(response);
+      return response.json();
+    });
+
+    const errorMessage = extractGraphQLErrorMessage(json);
+    if (errorMessage) throw new Error(`CJ products query failed for advertiser ${params.advertiserId}: ${errorMessage}`);
+
+    return parseProductsFeedPage(json);
   }
 
   /**
