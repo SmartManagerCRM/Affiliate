@@ -52,13 +52,15 @@ export type DiscoverCjProgramsResult = {
 
 /**
  * Server-side "Discover Programs": authenticates with this account's own
- * CJ Personal Access Token and asks CJ's Advertiser Lookup API which
- * advertisers this account has a relationship with — never a per-advertiser
- * env var, never a browser-side credential. See cjAdapter.ts's own caveat:
- * the exact endpoint/response shape is sourced from third-party docs, not
- * confirmed directly against developers.cj.com (blocked in this sandbox) —
- * a wrong assumption degrades to "found nothing" via defensive parsing,
- * and the manual "Add Program" form works regardless.
+ * CJ Personal Access Token and queries CJ's Contracts GraphQL API
+ * (publisherQueries.contracts) for the advertisers this account actually
+ * has a relationship/contract with — never a per-advertiser env var, never
+ * a browser-side credential. See cjAdapter.ts's own caveat: the exact
+ * GraphQL host and response field names are sourced from the account
+ * owner's own live schema access, not independently confirmed against
+ * developers.cj.com (blocked in this sandbox) — a wrong assumption degrades
+ * to "found nothing" via defensive parsing, and the manual "Add Program"
+ * form works regardless.
  */
 export async function discoverCjProgramsAction(): Promise<DiscoverCjProgramsResult> {
   const { supabase } = await requireAdmin();

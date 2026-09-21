@@ -11,8 +11,11 @@ import type {
 import { getCjConfig, hasCjCredentials, type CjConfig } from "./config";
 import { withRetry, errorForResponse, fetchWithTimeout } from "../../httpRetry";
 import { parseAdvertiserLookupResponse, type DiscoveredCjAdvertiser } from "./discovery";
+import { parseContractsResponse, extractGraphQLErrorMessage, type DiscoveredCjContract } from "./contracts";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const CONTRACTS_PAGE_SIZE = 100;
+const MAX_CONTRACTS_PAGES = 200; // safety bound against a misbehaving/always-full-page API
 
 export type CjAdapterOptions = {
   config?: CjConfig;
@@ -21,25 +24,54 @@ export type CjAdapterOptions = {
   timeoutMs?: number;
 };
 
+const CONTRACTS_QUERY = `
+  query PublisherContracts($publisherId: ID!, $advertiserId: ID, $activeAfter: Date, $activeBefore: Date, $limit: Int, $offset: Int) {
+    publisherQueries {
+      contracts(publisherId: $publisherId, advertiserId: $advertiserId, activeAfter: $activeAfter, activeBefore: $activeBefore, limit: $limit, offset: $offset) {
+        totalCount
+        resultList {
+          advertiserId
+          advertiserName
+          status
+        }
+      }
+    }
+  }
+`;
+
 /**
  * CJ (Commission Junction / CJ Affiliate) network adapter.
  *
  * Authentication is a long-lived Personal Access Token (CJ_API_KEY), sent
  * directly as `Authorization: Bearer <token>` — unlike Admitad, CJ has no
- * separate OAuth2 token-exchange step to perform first. CJ_WEBSITE_ID is
- * this account's own CID, sent as the `requestor-cid` parameter every
- * Advertiser Lookup call requires.
+ * separate OAuth2 token-exchange step to perform first.
  *
- * CJ ENDPOINTS — SOURCED BUT NOT DIRECTLY VERIFIED. developers.cj.com is
- * blocked by this sandbox's network egress policy, so the Advertiser
- * Lookup endpoint (host, path, requestor-cid parameter, and the
- * advertiser-id/advertiser-name/account-status/relationship-status/
- * program-url response fields) is sourced from third-party documentation
- * of CJ's public API surface, not confirmed against CJ's own current docs
- * page directly. Parsing is deliberately defensive (see discovery.ts) so
- * a wrong assumption here degrades to "found nothing", never corrupted
- * data — and the admin UI's manual "Add Program" form works regardless of
- * whether this endpoint assumption turns out correct.
+ * DISCOVERY SOURCE — CHANGED after a real account confirmed the original
+ * implementation missed an already-APPROVED advertiser. The Advertiser
+ * Lookup REST API (fetchAdvertiserLookupXml, kept below but no longer
+ * called by discoverPrograms/testConnection) is a general advertiser
+ * *directory* search — it does not reliably reflect this account's own
+ * approved relationships. Discovery now calls the `publisherQueries.
+ * contracts` GraphQL query instead, which is what actually returns the
+ * publisher's real advertiser relationships/contract status.
+ *
+ * CJ ENDPOINTS — SOURCED BUT NOT DIRECTLY VERIFIED. developers.cj.com and
+ * every mirror attempted are blocked by this sandbox's network egress
+ * policy. The Contracts query's exact shape (the `publisherQueries.
+ * contracts` query name, its `advertiserId`/`activeAfter`/`activeBefore`/
+ * `publisherId` arguments) was reported by the account owner from their
+ * own live access to CJ's GraphQL schema — treated as authoritative here,
+ * since it's more current than anything this sandbox could independently
+ * confirm. What's still genuinely unverified: which GraphQL host serves
+ * this query (defaulted to ads.api.cj.com/query, the general "ads" GraphQL
+ * surface — override with CJ_GRAPHQL_API_URL if wrong), the per-contract
+ * field names within resultList (defensive alias lookup — see
+ * contracts.ts), and whether `publisherId` is really the same identifier
+ * as CJ_WEBSITE_ID/requestor-cid or a distinct one (if discovery still
+ * comes up empty after this change, that mapping is the next thing to
+ * check). Parsing never throws on an unexpected shape — a wrong assumption
+ * degrades to "found fewer/no contracts", and the admin UI's manual "Add
+ * Program" form works regardless.
  *
  * Product synchronization (fetchProducts/fetchOffers/normalize) is
  * intentionally NOT implemented yet — this phase only covers
@@ -72,7 +104,7 @@ export class CjAdapter implements AffiliateNetworkAdapter {
       return { ok: false, message: "CJ is not configured: set CJ_API_KEY and CJ_WEBSITE_ID." };
     }
     try {
-      await this.fetchAdvertiserLookupXml({});
+      await this.fetchContractsPage({ limit: 1, offset: 0 });
       return { ok: true, message: "Connected to CJ." };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error connecting to CJ.";
@@ -80,11 +112,37 @@ export class CjAdapter implements AffiliateNetworkAdapter {
     }
   }
 
-  /** The one real capability this phase implements: lists advertisers this account has any relationship with, via the Advertiser Lookup API. */
-  async discoverPrograms(): Promise<DiscoveredCjAdvertiser[]> {
+  /**
+   * Lists advertisers this account actually has a contract/relationship
+   * with, via the Contracts GraphQL query — paginated (CONTRACTS_PAGE_SIZE
+   * per page, bounded by MAX_CONTRACTS_PAGES) so an account with more than
+   * one page of relationships doesn't silently lose anything past page one,
+   * unlike the previous Advertiser Lookup-based implementation.
+   */
+  async discoverPrograms(): Promise<DiscoveredCjContract[]> {
     if (!hasCjCredentials(this.config)) {
       throw new Error("CJ is not configured: set CJ_API_KEY and CJ_WEBSITE_ID.");
     }
+
+    const all: DiscoveredCjContract[] = [];
+    let offset = 0;
+
+    for (let page = 0; page < MAX_CONTRACTS_PAGES; page++) {
+      const result = await this.fetchContractsPage({ limit: CONTRACTS_PAGE_SIZE, offset });
+      all.push(...result.contracts);
+
+      offset += CONTRACTS_PAGE_SIZE;
+      const knowsTotal = result.totalCount !== null;
+      const exhaustedKnownTotal = knowsTotal && offset >= (result.totalCount as number);
+      const pageWasShort = result.contracts.length < CONTRACTS_PAGE_SIZE;
+      if (exhaustedKnownTotal || pageWasShort) break;
+    }
+
+    return all;
+  }
+
+  /** Kept for a possible secondary/manual-lookup use, but no longer called by discoverPrograms()/testConnection() — see the class-level caveat above for why. */
+  async lookupAdvertisers(): Promise<DiscoveredCjAdvertiser[]> {
     const xml = await this.fetchAdvertiserLookupXml({});
     return parseAdvertiserLookupResponse(xml);
   }
@@ -105,6 +163,43 @@ export class CjAdapter implements AffiliateNetworkAdapter {
   normalize(_raw: unknown): NormalizedProduct {
     void _raw;
     throw new Error("CJ product normalization is not implemented yet.");
+  }
+
+  private async fetchContractsPage(params: { limit: number; offset: number; advertiserId?: string }) {
+    const body = JSON.stringify({
+      query: CONTRACTS_QUERY,
+      variables: {
+        publisherId: this.config.websiteId,
+        advertiserId: params.advertiserId ?? null,
+        activeAfter: null,
+        activeBefore: null,
+        limit: params.limit,
+        offset: params.offset,
+      },
+    });
+
+    const json = await withRetry(async () => {
+      const response = await fetchWithTimeout(
+        this.fetchImpl,
+        this.config.graphqlApiUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.config.apiKey}`,
+          },
+          body,
+        },
+        this.timeoutMs
+      );
+      if (!response.ok) throw errorForResponse(response);
+      return response.json();
+    });
+
+    const errorMessage = extractGraphQLErrorMessage(json);
+    if (errorMessage) throw new Error(`CJ Contracts query failed: ${errorMessage}`);
+
+    return parseContractsResponse(json);
   }
 
   private async fetchAdvertiserLookupXml(filters: { advertiserIds?: string[] }): Promise<string> {

@@ -69,7 +69,9 @@ export default async function CjProgramsPage({
                 </Td>
                 <Td>
                   {p.relationshipStatus ? (
-                    <Badge tone={p.relationshipStatus === "joined" ? "green" : "neutral"}>{p.relationshipStatus}</Badge>
+                    <Badge tone={p.relationshipStatus === "joined" || p.relationshipStatus === "active" ? "green" : "neutral"}>
+                      {p.relationshipStatus}
+                    </Badge>
                   ) : (
                     "—"
                   )}

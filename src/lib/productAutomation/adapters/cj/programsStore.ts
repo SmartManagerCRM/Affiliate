@@ -1,6 +1,6 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
-import type { DiscoveredCjAdvertiser } from "./discovery";
+import type { DiscoveredCjContract } from "./contracts";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
 
@@ -105,23 +105,26 @@ export type CjDiscoverySummary = {
 };
 
 /**
- * Upserts discovered advertisers by cj_advertiser_id — the unique
- * constraint on that column is the hard backstop, but this selects first
- * so a re-discovery of an already-known advertiser updates its
- * name/status/url in place instead of ever attempting a duplicate insert.
- * Never touches `active`: that's the admin's own selection (requirement:
- * "allow selecting/enabling programs"), and discovery must never silently
- * flip it either way.
+ * Upserts discovered contracts by cj_advertiser_id — the unique constraint
+ * on that column is the hard backstop, but this selects first so a
+ * re-discovery of an already-known advertiser updates its name/status in
+ * place instead of ever attempting a duplicate insert. Never touches
+ * `active`: that's the admin's own selection (requirement: "allow
+ * selecting/enabling programs"), and discovery must never silently flip it
+ * either way. Never touches `program_url`/`account_status` either — the
+ * Contracts query doesn't report either of those (only Advertiser Lookup
+ * did), so overwriting them with null on every re-discovery would destroy
+ * real values with nothing to replace them.
  */
-export async function upsertDiscoveredCjPrograms(supabase: SupabaseAdmin, discovered: DiscoveredCjAdvertiser[]): Promise<CjDiscoverySummary> {
+export async function upsertDiscoveredCjPrograms(supabase: SupabaseAdmin, discovered: DiscoveredCjContract[]): Promise<CjDiscoverySummary> {
   let created = 0;
   let updated = 0;
 
-  for (const advertiser of discovered) {
+  for (const contract of discovered) {
     const { data: existing, error: selectError } = await supabase
       .from("cj_programs")
       .select("id")
-      .eq("cj_advertiser_id", advertiser.cjAdvertiserId)
+      .eq("cj_advertiser_id", contract.cjAdvertiserId)
       .maybeSingle();
     if (selectError) throw new Error(selectError.message);
 
@@ -129,10 +132,8 @@ export async function upsertDiscoveredCjPrograms(supabase: SupabaseAdmin, discov
       const { error } = await supabase
         .from("cj_programs")
         .update({
-          advertiser_name: advertiser.advertiserName,
-          program_url: advertiser.programUrl,
-          relationship_status: advertiser.relationshipStatus,
-          account_status: advertiser.accountStatus,
+          advertiser_name: contract.advertiserName,
+          relationship_status: contract.status,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
@@ -140,11 +141,9 @@ export async function upsertDiscoveredCjPrograms(supabase: SupabaseAdmin, discov
       updated += 1;
     } else {
       const { error } = await supabase.from("cj_programs").insert({
-        cj_advertiser_id: advertiser.cjAdvertiserId,
-        advertiser_name: advertiser.advertiserName,
-        program_url: advertiser.programUrl,
-        relationship_status: advertiser.relationshipStatus,
-        account_status: advertiser.accountStatus,
+        cj_advertiser_id: contract.cjAdvertiserId,
+        advertiser_name: contract.advertiserName,
+        relationship_status: contract.status,
         active: false,
         discovered_at: new Date().toISOString(),
       });
