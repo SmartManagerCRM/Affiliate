@@ -16,6 +16,7 @@ import {
   updateCandidateDetails,
 } from "@/actions/productCandidates";
 import type { NormalizedProduct } from "@/lib/productAutomation/types";
+import { getProductClickStats } from "@/lib/adminAnalytics";
 
 const APPROVAL_TONE: Record<string, "gold" | "green" | "red" | "neutral"> = {
   pending: "gold",
@@ -54,6 +55,8 @@ export default async function ProductCandidateDetailPage({
   ]);
 
   if (!candidate) notFound();
+
+  const clickStats = candidate.product_id ? await getProductClickStats(supabase, candidate.product_id) : null;
 
   const product = candidate.normalized_data as unknown as NormalizedProduct;
   const offer = product.offers?.[0];
@@ -101,6 +104,14 @@ export default async function ProductCandidateDetailPage({
             <Link href={`/admin/products/${candidate.product.id}`} className="font-medium text-accent-green">
               {candidate.product.name}
             </Link>
+          </p>
+        )}
+
+        {clickStats && (
+          <p className="mt-3 text-sm text-espresso/60">
+            {clickStats.totalClicks > 0
+              ? `${clickStats.totalClicks} click${clickStats.totalClicks === 1 ? "" : "s"} all time, last on ${new Date(clickStats.lastClickAt!).toLocaleString()}.`
+              : "No performance data yet — this product hasn't had any real clicks recorded."}
           </p>
         )}
         {!candidate.product && candidate.match_product && (

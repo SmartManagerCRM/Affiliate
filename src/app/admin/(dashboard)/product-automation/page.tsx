@@ -1,4 +1,6 @@
-import { Radar, RefreshCw, History, Settings2, Sparkles, Gauge, RotateCw } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { Radar, RefreshCw, History, Settings2, Sparkles, Gauge, RotateCw, LineChart, Package } from "lucide-react";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -12,6 +14,7 @@ import { isClassificationConfigured } from "@/lib/productAutomation/classificati
 import { isLockActive } from "@/lib/productAutomation/scheduler/syncLock";
 import { updateImportConfig } from "@/actions/productAutomation";
 import { DEFAULT_IMPORT_CONFIG, type ImportConfig } from "@/lib/productAutomation/importConfig";
+import { getAutomationPerformance } from "@/lib/adminAnalytics";
 
 export default async function ProductAutomationPage({
   searchParams,
@@ -82,6 +85,8 @@ export default async function ProductAutomationPage({
       supabase.from("offers").select("id", { count: "exact", head: true }).eq("managed_by_automation", false),
       supabase.from("offers").select("id", { count: "exact", head: true }).eq("availability", "out_of_stock"),
     ]);
+
+  const performance = await getAutomationPerformance(supabase);
 
   return (
     <div className="flex flex-col gap-8">
@@ -241,6 +246,54 @@ export default async function ProductAutomationPage({
         <div className="mt-6">
           <AutoUpdateButton />
         </div>
+      </section>
+
+      {/* Performance Intelligence */}
+      <section className="rounded-2xl border border-espresso/10 bg-white p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-2.5">
+          <LineChart className="h-4.5 w-4.5 text-espresso/45" strokeWidth={1.75} />
+          <h2 className="font-serif-display text-lg font-semibold text-espresso">Performance Intelligence</h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Stat label="Automation-sourced products" value={performance.automationProductCount} />
+          <Stat label="With real click data" value={performance.productsWithClicks} />
+          <Stat label="No performance data yet" value={performance.productsWithoutClicks} />
+          <Stat label="Total clicks (all time)" value={performance.totalClicks} />
+        </div>
+
+        {performance.topProducts.length > 0 && (
+          <ul className="mt-5 flex flex-col gap-1 border-t border-espresso/8 pt-4">
+            {performance.topProducts.map((p) => (
+              <li key={p.productId}>
+                <Link
+                  href={`/admin/products/${p.productId}`}
+                  className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-beige/50"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-beige">
+                    {p.mainImage ? (
+                      <Image src={p.mainImage} alt="" width={36} height={36} className="h-full w-full object-cover" />
+                    ) : (
+                      <Package className="h-4 w-4 text-espresso/30" strokeWidth={1.75} />
+                    )}
+                  </div>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-espresso">{p.name}</span>
+                  <span className="shrink-0 text-sm font-semibold text-espresso">
+                    {p.clicks}
+                    <span className="ms-1 text-xs font-normal text-espresso/40">click{p.clicks === 1 ? "" : "s"}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p className="mt-3 text-xs text-espresso/40">
+          Real affiliate_clicks counts for products that came in through automation — nothing here is
+          estimated. There is no order/conversion/revenue data in this schema, so no conversion rate, EPC,
+          or revenue figure is ever shown or computed; a product with zero clicks is reported as &quot;No
+          performance data yet,&quot; never a fabricated number.
+        </p>
       </section>
 
       {/* Import configuration */}

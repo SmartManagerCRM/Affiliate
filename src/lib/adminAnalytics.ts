@@ -1,6 +1,11 @@
 import "server-only";
 import { eachDay, percentChange, previousPeriod, type ResolvedRange } from "@/lib/dateRange";
 import type { createClient } from "@/lib/supabase/server";
+import {
+  summarizeAutomationClicks,
+  type AutomationPerformanceSummary,
+  type ClickRow,
+} from "@/lib/productAutomation/performance/summarizeClicks";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
 
@@ -331,4 +336,62 @@ export async function getRecentActivity(
   return events
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, limit);
+}
+
+/**
+ * All-time click performance for automation-sourced products (Phase 9),
+ * scoped to product_import_sources rows that were approved into a real
+ * product. Delegates the actual counting/aggregation to the pure
+ * summarizeAutomationClicks() so the "never fabricate a conversion, EPC,
+ * or revenue figure" rule is enforced in one unit-tested place.
+ */
+export async function getAutomationPerformance(
+  supabase: SupabaseAdmin,
+  limit = 5
+): Promise<AutomationPerformanceSummary> {
+  const { data: sources } = await supabase
+    .from("product_import_sources")
+    .select("product_id")
+    .not("product_id", "is", null)
+    .limit(5000);
+
+  const productIds = Array.from(new Set((sources ?? []).map((s) => s.product_id as string)));
+
+  if (productIds.length === 0) {
+    return { totalClicks: 0, automationProductCount: 0, productsWithClicks: 0, productsWithoutClicks: 0, topProducts: [] };
+  }
+
+  const { data: clicks } = await supabase
+    .from("affiliate_clicks")
+    .select("product_id, product:products(id, name, main_image)")
+    .in("product_id", productIds)
+    .limit(5000);
+
+  const clickRows: ClickRow[] = (clicks ?? [])
+    .filter((row) => row.product_id && row.product)
+    .map((row) => ({ productId: row.product_id as string, name: row.product!.name, mainImage: row.product!.main_image }));
+
+  const summary = summarizeAutomationClicks(productIds, clickRows);
+  return { ...summary, topProducts: summary.topProducts.slice(0, limit) };
+}
+
+export type ProductClickStats = {
+  totalClicks: number;
+  lastClickAt: string | null;
+};
+
+/** All-time real click stats for a single product — used on the candidate detail page for approved candidates. */
+export async function getProductClickStats(supabase: SupabaseAdmin, productId: string): Promise<ProductClickStats> {
+  const [{ count }, { data: lastClick }] = await Promise.all([
+    supabase.from("affiliate_clicks").select("*", { count: "exact", head: true }).eq("product_id", productId),
+    supabase
+      .from("affiliate_clicks")
+      .select("created_at")
+      .eq("product_id", productId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  return { totalClicks: count ?? 0, lastClickAt: lastClick?.created_at ?? null };
 }
