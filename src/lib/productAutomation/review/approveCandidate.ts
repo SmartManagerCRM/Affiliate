@@ -3,6 +3,7 @@ import type { createClient } from "@/lib/supabase/server";
 import { mergeProductFields, resolveTargetProductId } from "./mergeProduct";
 import { buildOfferUpdate, type OfferSyncFields } from "./offerSync";
 import { resolveBrandId, resolveRetailerId, generateUniqueSlug, syncProductImages } from "./productWriters";
+import { rehostImages } from "./imageHosting";
 import type { NormalizedProduct } from "../types";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
@@ -69,6 +70,15 @@ export async function approveCandidate(
     return { status: "error", message: `Could not resolve a retailer for "${primaryOffer.retailerName}".` };
   }
 
+  // Re-host feed images into our own Supabase Storage bucket before they
+  // ever reach main_image/product_images — keyed by candidateId (stable
+  // and known before a product exists) rather than productId, since a
+  // brand-new product's id isn't assigned until the insert below, which
+  // itself needs the (rehosted) main image. A failed re-host for any one
+  // image just falls back to its original external URL (see
+  // imageHosting.ts) — never blocks approval.
+  const rehostedImages = await rehostImages(supabase, product.images, candidateId);
+
   let productId: string;
 
   if (targetProductId) {
@@ -91,7 +101,7 @@ export async function approveCandidate(
       {
         description: product.description ?? null,
         shortDescription: product.shortDescription ?? null,
-        mainImage: product.images[0] ?? null,
+        mainImage: rehostedImages[0] ?? null,
         brandId,
       }
     );
@@ -120,7 +130,7 @@ export async function approveCandidate(
         brand_id: brandId,
         description: product.description ?? null,
         short_description: product.shortDescription ?? null,
-        main_image: product.images[0] ?? null,
+        main_image: rehostedImages[0] ?? null,
         specifications: {},
         tags: [],
         status: "published",
@@ -134,7 +144,7 @@ export async function approveCandidate(
     productId = created.id;
   }
 
-  await syncProductImages(supabase, productId, product.images);
+  await syncProductImages(supabase, productId, rehostedImages);
 
   // Activities/categories: add-only — never remove an existing link that
   // may have come from a human, or from another approved candidate.

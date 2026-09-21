@@ -3,6 +3,7 @@ import type { createClient } from "@/lib/supabase/server";
 import { mergeProductFields } from "../review/mergeProduct";
 import { buildOfferUpdate, type OfferSyncFields } from "../review/offerSync";
 import { resolveBrandId } from "../review/productWriters";
+import { rehostImage } from "../review/imageHosting";
 import type { NormalizedProduct } from "../types";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
@@ -143,6 +144,13 @@ export async function autoUpdateApprovedProducts(
     if (!existingProduct) continue;
 
     const brandId = existingProduct.brand_id ?? (await resolveBrandId(supabase, product.brand));
+    // Only actually fetch/re-host the feed's image when it would be used —
+    // mergeProductFields gap-fills mainImage alone, so there's no point
+    // downloading it on every re-sync tick for a product that already has one.
+    const candidateMainImage =
+      !existingProduct.main_image && product.images[0]
+        ? await rehostImage(supabase, product.images[0], candidate.id)
+        : (product.images[0] ?? null);
     const fieldUpdate = mergeProductFields(
       {
         description: existingProduct.description,
@@ -153,7 +161,7 @@ export async function autoUpdateApprovedProducts(
       {
         description: product.description ?? null,
         shortDescription: product.shortDescription ?? null,
-        mainImage: product.images[0] ?? null,
+        mainImage: candidateMainImage,
         brandId,
       }
     );
