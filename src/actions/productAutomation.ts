@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { runScheduledSync, type SyncAllResult } from "@/lib/productAutomation/scheduler/runScheduledSync";
-import { isClassificationConfigured, AnthropicClassificationClient } from "@/lib/productAutomation/classification/anthropicClient";
+import { isClassificationConfigured, createClassificationClient } from "@/lib/productAutomation/classification/provider";
 import { SupabaseClassificationStore } from "@/lib/productAutomation/classification/supabaseClassificationStore";
 import { classifyPendingProducts, describeClassificationRun } from "@/lib/productAutomation/classification/classifyEngine";
 import { autoUpdateApprovedProducts } from "@/lib/productAutomation/update/autoUpdateEngine";
@@ -59,16 +59,16 @@ export type ClassifyPendingResult = {
   message: string;
 };
 
-/** Standalone classification pass, independent of "Sync Now" — useful for working through a backlog or after adding ANTHROPIC_API_KEY. */
+/** Standalone classification pass, independent of "Sync Now" — useful for working through a backlog or after adding GEMINI_API_KEY/ANTHROPIC_API_KEY. */
 export async function classifyPendingProductsAction(): Promise<ClassifyPendingResult> {
   const { supabase } = await requireAdmin();
 
   if (!isClassificationConfigured()) {
-    return { message: "ANTHROPIC_API_KEY is not configured — nothing to classify." };
+    return { message: "No classification provider is configured (GEMINI_API_KEY or ANTHROPIC_API_KEY) — nothing to classify." };
   }
 
   const store = new SupabaseClassificationStore(supabase);
-  const client = new AnthropicClassificationClient();
+  const client = createClassificationClient();
   const summary = await classifyPendingProducts(store, client);
 
   revalidatePath("/admin/product-automation");

@@ -10,7 +10,7 @@ import { SyncAllButton } from "@/components/admin/SyncAllButton";
 import { ClassifyPendingButton } from "@/components/admin/ClassifyPendingButton";
 import { AutoUpdateButton } from "@/components/admin/AutoUpdateButton";
 import { getNetworkStatuses } from "@/lib/productAutomation/registry";
-import { isClassificationConfigured } from "@/lib/productAutomation/classification/anthropicClient";
+import { isClassificationConfigured } from "@/lib/productAutomation/classification/provider";
 import { isLockActive } from "@/lib/productAutomation/scheduler/syncLock";
 import { AUTO_UPDATE_ERROR_TYPES } from "@/lib/productAutomation/update/autoUpdateEngine";
 import { getRecentImportErrors } from "@/lib/productAutomation/errors";
@@ -216,9 +216,9 @@ export default async function ProductAutomationPage({
         </div>
 
         <p className="mt-3 text-xs text-espresso/40">
-          Runs automatically after every sync. Set ANTHROPIC_API_KEY as a server environment
-          variable to enable it — classification only ever stages an activity/category/country
-          suggestion for review, it never publishes a product directly.
+          Runs automatically after every sync. Set GEMINI_API_KEY (or ANTHROPIC_API_KEY) as a
+          server environment variable to enable it — classification only ever stages an
+          activity/category/country suggestion for review, it never publishes a product directly.
         </p>
 
         <div className="mt-6">

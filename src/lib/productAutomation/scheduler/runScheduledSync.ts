@@ -8,7 +8,7 @@ import { CjAdapter } from "../adapters/cj/cjAdapter";
 import { listSyncableCjPrograms, recordCjProgramSyncResult } from "../adapters/cj/programsStore";
 import { SupabaseSyncStore } from "../supabaseSyncStore";
 import { runNetworkSync } from "../syncEngine";
-import { isClassificationConfigured, AnthropicClassificationClient } from "../classification/anthropicClient";
+import { isClassificationConfigured, createClassificationClient } from "../classification/provider";
 import { SupabaseClassificationStore } from "../classification/supabaseClassificationStore";
 import { classifyPendingProducts, describeClassificationRun } from "../classification/classifyEngine";
 import { autoUpdateApprovedProducts } from "../update/autoUpdateEngine";
@@ -118,11 +118,11 @@ async function runSyncPipeline(supabase: SupabaseAdmin): Promise<SyncAllResult> 
   // skipped entirely (not faked) when no AI key is configured.
   if (isClassificationConfigured()) {
     const classificationStore = new SupabaseClassificationStore(supabase);
-    const classificationClient = new AnthropicClassificationClient();
+    const classificationClient = createClassificationClient();
     const summary = await classifyPendingProducts(classificationStore, classificationClient);
     results.push(describeClassificationRun(summary));
   } else {
-    results.push("Classification: ANTHROPIC_API_KEY is not configured — skipped.");
+    results.push("Classification: no provider configured (GEMINI_API_KEY or ANTHROPIC_API_KEY) — skipped.");
   }
 
   // Propagate fresh feed data to already-approved products/offers — no
