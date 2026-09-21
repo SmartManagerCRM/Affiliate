@@ -16,6 +16,16 @@ export type SyncRunOutcome = {
 };
 
 const MAX_PAGES = 500; // safety bound against a misbehaving adapter looping forever
+/**
+ * A real CJ sync (Herbspro.com, a large catalog) ran for 10+ minutes with
+ * zero products written to product_import_sources — MAX_PAGES alone doesn't
+ * bound wall-clock time when each individual page is slow rather than the
+ * adapter looping forever. This is a hard ceiling on total run duration,
+ * checked before starting each new page, so a slow-but-technically-
+ * completing sequence of pages still fails cleanly (a real "sync failed"
+ * result an admin can see and retry) instead of running indefinitely.
+ */
+const MAX_RUN_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
 /**
  * Runs one synchronization attempt for a single network/adapter pair and
@@ -66,6 +76,8 @@ export async function runNetworkSync(
   let productsUpdated = 0;
   let productsRejected = 0;
 
+  const startedAt = Date.now();
+
   try {
     const publishedProductCandidates = await loadPublishedProductCandidates(store);
 
@@ -76,6 +88,11 @@ export async function runNetworkSync(
     while (hasMore) {
       if (++pages > MAX_PAGES) {
         throw new Error(`Exceeded maximum page count (${MAX_PAGES}) — the adapter's cursor may be stuck.`);
+      }
+      if (Date.now() - startedAt > MAX_RUN_DURATION_MS) {
+        throw new Error(
+          `Sync exceeded the maximum run duration (${MAX_RUN_DURATION_MS / 60_000} minutes) after ${pages - 1} page(s) — the source is likely too slow per page (e.g. an expensive per-row field) rather than stuck; consider a smaller page size.`
+        );
       }
 
       const page = await adapter.fetchProducts({ cursor, feedUrl: options.feedUrl, advertiserId: options.advertiserId });

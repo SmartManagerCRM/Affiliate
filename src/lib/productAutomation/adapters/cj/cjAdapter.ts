@@ -17,7 +17,16 @@ import { normalizeProductRow, parseProductsFeedPage } from "./products";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const PRODUCTS_PAGE_SIZE = 100;
 const MAX_PRODUCT_PAGES = 500; // safety bound — a large catalog may need many pages just to see every joined advertiser once
-const PRODUCTS_FEED_PAGE_SIZE = 100;
+/**
+ * Deliberately much smaller than PRODUCTS_PAGE_SIZE (discovery's page size,
+ * which only selects advertiserId/advertiserName). A real sync run against
+ * a large catalog (Herbspro.com) hung well past DEFAULT_TIMEOUT_MS with
+ * zero products written — consistent with `linkCode(pid: ...)` (a tracked
+ * click URL, generated per row — see products.ts) being expensive for CJ's
+ * backend to resolve, and 100 of them in one request being too much. A
+ * smaller page trades more requests for each one actually completing.
+ */
+const PRODUCTS_FEED_PAGE_SIZE = 20;
 
 /**
  * Deliberately minimal: only the two fields discoverPrograms() needs to
