@@ -133,6 +133,11 @@ export default async function ProductAutomationPage({
                     Manage Programs
                   </Link>
                 )}
+                {n.key === "cj" && (
+                  <Link href="/admin/product-automation/cj-programs" className="text-sm font-medium text-accent-green">
+                    Manage Programs
+                  </Link>
+                )}
                 <Badge tone={n.connected ? "green" : "neutral"}>
                   {n.connected ? "Connected" : "Not Connected"}
                 </Badge>

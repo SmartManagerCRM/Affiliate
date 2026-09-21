@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAdmitadConfig, hasAdmitadCredentials } from "./adapters/admitad/config";
+import { getCjConfig, hasCjCredentials } from "./adapters/cj/config";
 
 /**
  * The known affiliate networks the automation system can eventually talk
@@ -36,7 +37,14 @@ export const NETWORK_REGISTRY: NetworkRegistryEntry[] = [
   {
     key: "cj",
     label: "CJ",
+    // Account-level only, same as Admitad: CJ_API_KEY (a Personal Access
+    // Token, used directly — CJ has no separate OAuth exchange step) and
+    // CJ_WEBSITE_ID (this account's own CID). Which advertisers are
+    // discovered/enabled is a separate, per-program question answered by
+    // cj_programs (see programsStore.ts) — adding an advertiser never
+    // needs a new env var here.
     requiredEnvVars: ["CJ_API_KEY", "CJ_WEBSITE_ID"],
+    isConfigured: () => hasCjCredentials(getCjConfig()),
   },
   {
     key: "clickbank",

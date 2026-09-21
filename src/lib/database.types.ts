@@ -297,6 +297,54 @@ export type Database = {
           },
         ]
       }
+      cj_programs: {
+        Row: {
+          account_status: string | null
+          active: boolean
+          advertiser_name: string
+          cj_advertiser_id: string
+          created_at: string
+          discovered_at: string | null
+          id: string
+          last_sync_error: string | null
+          last_sync_status: string | null
+          last_synced_at: string | null
+          program_url: string | null
+          relationship_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_status?: string | null
+          active?: boolean
+          advertiser_name: string
+          cj_advertiser_id: string
+          created_at?: string
+          discovered_at?: string | null
+          id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          program_url?: string | null
+          relationship_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_status?: string | null
+          active?: boolean
+          advertiser_name?: string
+          cj_advertiser_id?: string
+          created_at?: string
+          discovered_at?: string | null
+          id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          program_url?: string | null
+          relationship_status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       offers: {
         Row: {
           active: boolean
