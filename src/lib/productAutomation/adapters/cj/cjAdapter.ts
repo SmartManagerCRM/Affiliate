@@ -24,10 +24,19 @@ export type CjAdapterOptions = {
   timeoutMs?: number;
 };
 
+/**
+ * activeAfter/activeBefore are deliberately NOT included as query variables:
+ * a real account's response confirmed CJ's schema rejects a `Date` scalar
+ * type ("Unknown type 'Date'") for them, and since this adapter never
+ * actually filters by date (always called with limit/offset/advertiserId
+ * only), the safe fix is to drop the two unused arguments rather than guess
+ * another type name blind. If date filtering is ever needed, the correct
+ * scalar type must be confirmed against CJ's real schema first.
+ */
 const CONTRACTS_QUERY = `
-  query PublisherContracts($publisherId: ID!, $advertiserId: ID, $activeAfter: Date, $activeBefore: Date, $limit: Int, $offset: Int) {
+  query PublisherContracts($publisherId: ID!, $advertiserId: ID, $limit: Int, $offset: Int) {
     publisherQueries {
-      contracts(publisherId: $publisherId, advertiserId: $advertiserId, activeAfter: $activeAfter, activeBefore: $activeBefore, limit: $limit, offset: $offset) {
+      contracts(publisherId: $publisherId, advertiserId: $advertiserId, limit: $limit, offset: $offset) {
         totalCount
         resultList {
           advertiserId
@@ -55,20 +64,22 @@ const CONTRACTS_QUERY = `
  * contracts` GraphQL query instead, which is what actually returns the
  * publisher's real advertiser relationships/contract status.
  *
- * CJ ENDPOINTS — SOURCED BUT NOT DIRECTLY VERIFIED. developers.cj.com and
- * every mirror attempted are blocked by this sandbox's network egress
- * policy. The Contracts query's exact shape (the `publisherQueries.
- * contracts` query name, its `advertiserId`/`activeAfter`/`activeBefore`/
- * `publisherId` arguments) was reported by the account owner from their
- * own live access to CJ's GraphQL schema — treated as authoritative here,
- * since it's more current than anything this sandbox could independently
- * confirm. What's still genuinely unverified: which GraphQL host serves
- * this query (defaulted to ads.api.cj.com/query, the general "ads" GraphQL
- * surface — override with CJ_GRAPHQL_API_URL if wrong), the per-contract
- * field names within resultList (defensive alias lookup — see
- * contracts.ts), and whether `publisherId` is really the same identifier
- * as CJ_WEBSITE_ID/requestor-cid or a distinct one (if discovery still
- * comes up empty after this change, that mapping is the next thing to
+ * CJ ENDPOINTS — PARTIALLY VERIFIED against a real account (2026-09-21).
+ * developers.cj.com and every mirror attempted are still blocked by this
+ * sandbox's network egress policy, so the schema was sourced from the
+ * account owner's own live access, not confirmed independently — but a
+ * real 400 response from ads.api.cj.com/query confirmed: the host is
+ * reachable and authenticates the request; the query name, and the
+ * `publisherId`/`advertiserId`/`limit`/`offset` argument names on
+ * `publisherQueries.contracts`, all passed CJ's own schema validation
+ * (the ONLY reported violation was `$activeAfter`/`$activeBefore` typed as
+ * a nonexistent `Date` scalar — those two arguments were unused anyway
+ * (always null) and have been removed rather than guessing another type
+ * name). What's still genuinely unverified: the per-contract field names
+ * within resultList (defensive alias lookup — see contracts.ts), and
+ * whether `publisherId` is really the same identifier as
+ * CJ_WEBSITE_ID/requestor-cid or a distinct one (if discovery still comes
+ * up empty or errors after this fix, that mapping is the next thing to
  * check). Parsing never throws on an unexpected shape — a wrong assumption
  * degrades to "found fewer/no contracts", and the admin UI's manual "Add
  * Program" form works regardless.
@@ -171,8 +182,6 @@ export class CjAdapter implements AffiliateNetworkAdapter {
       variables: {
         publisherId: this.config.websiteId,
         advertiserId: params.advertiserId ?? null,
-        activeAfter: null,
-        activeBefore: null,
         limit: params.limit,
         offset: params.offset,
       },

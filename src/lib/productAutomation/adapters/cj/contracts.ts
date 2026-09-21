@@ -5,12 +5,17 @@
  * which a real account confirmed does NOT reliably surface an already-
  * approved advertiser (see cjAdapter.ts's discoverPrograms() history).
  *
- * The exact schema (query name, argument names — advertiserId,
- * activeAfter, activeBefore, publisherId — and per-contract field names)
- * was reported by the account owner from their own live access to CJ's
- * GraphQL schema, not independently confirmed by this codebase — CJ's
- * developer portal and every mirror attempted are blocked by this
- * sandbox's network egress policy. Parsing is deliberately defensive
+ * The exact schema (query name, argument names — advertiserId, publisherId,
+ * limit, offset — and per-contract field names) was reported by the account
+ * owner from their own live access to CJ's GraphQL schema. The query name
+ * and those argument names were since confirmed against a real account: a
+ * live 400 response from ads.api.cj.com/query only flagged the (now
+ * removed, unused) activeAfter/activeBefore arguments for using a
+ * nonexistent `Date` scalar type — see cjAdapter.ts's CONTRACTS_QUERY
+ * comment. The per-contract field names within resultList remain
+ * unconfirmed — CJ's developer portal and every mirror attempted are
+ * blocked by this sandbox's network egress policy. Parsing is deliberately
+ * defensive
  * (alias-based field lookup, tolerant envelope unwrapping, never throws
  * on an unexpected shape) so a wrong assumption about the exact response
  * shape degrades to "found fewer/no contracts" rather than corrupting
