@@ -110,7 +110,9 @@
     "comingSoon": "Bientôt disponible",
     "buyNow": "Acheter",
     "view": "Voir",
-    "compare": "Comparer {count}"
+    "compare": "Comparer {count}",
+    "addToCart": "Ajouter au panier",
+    "added": "Ajouté"
   },
   "product": {
     "home": "Accueil",
@@ -119,7 +121,33 @@
     "specifications": "Caractéristiques",
     "youMayAlsoLike": "Vous aimerez aussi",
     "offersFrom": "{count, plural, one {# offre disponible} other {# offres disponibles}} à partir de",
-    "metaFallbackDescription": "{name} — comparez les offres sur Selected Items."
+    "metaFallbackDescription": "{name} — comparez les offres sur Selected Items.",
+    "selectRetailer": "Choisir un revendeur",
+    "select": "Choisir",
+    "selected": "Choisi",
+    "addToCart": "Ajouter au panier",
+    "addSelectedOfferToCart": "Ajouter l'offre sélectionnée au panier",
+    "added": "Ajouté"
+  },
+  "cart": {
+    "openCart": "Voir le panier",
+    "cartCount": "Panier ({count})",
+    "pageTitle": "Mon panier",
+    "metaTitle": "Mon panier",
+    "product": "Produit",
+    "retailer": "Revendeur",
+    "price": "Prix",
+    "quantity": "Quantité",
+    "subtotal": "Sous-total",
+    "remove": "Retirer",
+    "clearCart": "Vider le panier",
+    "clearCartConfirm": "Retirer tous les articles de votre panier ?",
+    "unavailable": "Actuellement indisponible",
+    "priceDisclaimer": "Les prix et la disponibilité peuvent changer sur le site du revendeur.",
+    "itemCount": "{count, plural, one {# article} other {# articles}}",
+    "emptyTitle": "Votre panier est vide.",
+    "emptySubtitle": "Découvrez des produits sélectionnés pour votre entreprise.",
+    "exploreActivity": "Découvrir {name}"
   },
   "search": {
     "title": "Rechercher des produits",

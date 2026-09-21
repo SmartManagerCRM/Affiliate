@@ -7,6 +7,7 @@ import { routing, type Locale } from "@/i18n/routing";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { CurrencyProvider } from "@/components/site/CurrencyProvider";
+import { CartProvider } from "@/components/site/CartProvider";
 import { HtmlAttributes } from "@/components/site/HtmlAttributes";
 
 export function generateStaticParams() {
@@ -29,9 +30,11 @@ export default async function LocaleLayout({
     <NextIntlClientProvider>
       <HtmlAttributes />
       <CurrencyProvider>
-        <Header />
-        {children}
-        <Footer />
+        <CartProvider>
+          <Header />
+          {children}
+          <Footer />
+        </CartProvider>
       </CurrencyProvider>
     </NextIntlClientProvider>
   );

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { ButtonLink, LocaleButtonLink } from "@/components/ui/Button";
 import { Link } from "@/i18n/navigation";
 import { Price } from "@/components/site/Price";
+import { AddToCartButton } from "@/components/site/AddToCartButton";
 import { placeholderImage, isOptimizableImageSrc } from "@/lib/image";
 import type { ProductCardData } from "@/lib/types";
 
@@ -72,13 +73,12 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           </div>
 
           {cheapest && offers.length === 1 ? (
-            <ButtonLink
-              href={`/go/${cheapest.id}`}
-              size="sm"
-              className="shrink-0"
-            >
-              {t("buyNow")}
-            </ButtonLink>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <ButtonLink href={`/go/${cheapest.id}`} size="sm">
+                {t("buyNow")}
+              </ButtonLink>
+              {cheapest.id && <AddToCartButton productId={product.id} offerId={cheapest.id} />}
+            </div>
           ) : (
             <LocaleButtonLink
               href={`/product/${product.slug}`}

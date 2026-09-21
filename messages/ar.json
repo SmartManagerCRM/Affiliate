@@ -110,7 +110,9 @@
     "comingSoon": "قريباً",
     "buyNow": "اشترِ الآن",
     "view": "عرض",
-    "compare": "قارن {count}"
+    "compare": "قارن {count}",
+    "addToCart": "أضف إلى السلة",
+    "added": "تمت الإضافة"
   },
   "product": {
     "home": "الرئيسية",
@@ -119,7 +121,33 @@
     "specifications": "المواصفات",
     "youMayAlsoLike": "قد يعجبك أيضاً",
     "offersFrom": "{count, plural, one {# عرض متاح} other {# عروض متاحة}} يبدأ من",
-    "metaFallbackDescription": "{name} — قارن العروض على Selected Items."
+    "metaFallbackDescription": "{name} — قارن العروض على Selected Items.",
+    "selectRetailer": "اختر المتجر",
+    "select": "اختيار",
+    "selected": "تم الاختيار",
+    "addToCart": "أضف إلى السلة",
+    "addSelectedOfferToCart": "أضف العرض المختار إلى السلة",
+    "added": "تمت الإضافة"
+  },
+  "cart": {
+    "openCart": "عرض السلة",
+    "cartCount": "السلة ({count})",
+    "pageTitle": "سلتي",
+    "metaTitle": "سلتي",
+    "product": "المنتج",
+    "retailer": "المتجر",
+    "price": "السعر",
+    "quantity": "الكمية",
+    "subtotal": "الإجمالي الفرعي",
+    "remove": "إزالة",
+    "clearCart": "إفراغ السلة",
+    "clearCartConfirm": "هل تريد إزالة كل العناصر من سلتك؟",
+    "unavailable": "غير متوفر حالياً",
+    "priceDisclaimer": "قد تتغير الأسعار والتوفر على موقع المتجر.",
+    "itemCount": "{count, plural, one {عنصر واحد} other {# عناصر}}",
+    "emptyTitle": "سلتك فارغة.",
+    "emptySubtitle": "استكشف منتجات مختارة لأجل عملك.",
+    "exploreActivity": "استكشف {name}"
   },
   "search": {
     "title": "البحث عن المنتجات",

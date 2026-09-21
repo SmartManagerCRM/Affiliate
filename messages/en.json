@@ -110,7 +110,9 @@
     "comingSoon": "Coming soon",
     "buyNow": "Buy Now",
     "view": "View",
-    "compare": "Compare {count}"
+    "compare": "Compare {count}",
+    "addToCart": "Add to Cart",
+    "added": "Added"
   },
   "product": {
     "home": "Home",
@@ -119,7 +121,33 @@
     "specifications": "Specifications",
     "youMayAlsoLike": "You may also like",
     "offersFrom": "{count, plural, one {# offer} other {# offers}} available from",
-    "metaFallbackDescription": "{name} — compare offers on Selected Items."
+    "metaFallbackDescription": "{name} — compare offers on Selected Items.",
+    "selectRetailer": "Select Retailer",
+    "select": "Select",
+    "selected": "Selected",
+    "addToCart": "Add to Cart",
+    "addSelectedOfferToCart": "Add Selected Offer to Cart",
+    "added": "Added"
+  },
+  "cart": {
+    "openCart": "View Cart",
+    "cartCount": "Cart ({count})",
+    "pageTitle": "My Cart",
+    "metaTitle": "My Cart",
+    "product": "Product",
+    "retailer": "Retailer",
+    "price": "Price",
+    "quantity": "Quantity",
+    "subtotal": "Subtotal",
+    "remove": "Remove",
+    "clearCart": "Clear Cart",
+    "clearCartConfirm": "Remove all items from your cart?",
+    "unavailable": "Currently unavailable",
+    "priceDisclaimer": "Prices and availability may change on the retailer's website.",
+    "itemCount": "{count, plural, one {# item} other {# items}}",
+    "emptyTitle": "Your cart is empty.",
+    "emptySubtitle": "Explore products selected for your business.",
+    "exploreActivity": "Explore {name}"
   },
   "search": {
     "title": "Search Products",

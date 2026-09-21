@@ -6,6 +6,7 @@ import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
 import { ProductGallery } from "@/components/site/ProductGallery";
 import { OfferList } from "@/components/site/OfferList";
+import { AddToCartPanel } from "@/components/site/AddToCartPanel";
 import { Disclosure } from "@/components/site/Disclosure";
 import { ProductCard } from "@/components/site/ProductCard";
 import { getProductBySlug, getProducts } from "@/lib/queries";
@@ -176,6 +177,10 @@ export default async function ProductPage({
               {t("availableOffers")}
             </h2>
             <OfferList offers={product.offers} />
+          </div>
+
+          <div className="mt-6">
+            <AddToCartPanel productId={product.id} offers={product.offers} />
           </div>
 
           {product.description && (

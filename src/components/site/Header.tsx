@@ -9,6 +9,7 @@ import { MobileMenu } from "@/components/site/MobileMenu";
 import { SearchBox } from "@/components/site/SearchBox";
 import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
 import { CurrencySwitcher } from "@/components/site/CurrencySwitcher";
+import { CartLink } from "@/components/site/CartLink";
 
 export async function Header() {
   const locale = (await getLocale()) as Locale;
@@ -39,6 +40,7 @@ export async function Header() {
           <div className="hidden sm:block">
             <SearchBox compact />
           </div>
+          <CartLink />
           <MobileMenu activities={activities} />
         </div>
       </Container>
