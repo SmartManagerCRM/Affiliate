@@ -8,6 +8,7 @@ import { isClassificationConfigured, AnthropicClassificationClient } from "@/lib
 import { SupabaseClassificationStore } from "@/lib/productAutomation/classification/supabaseClassificationStore";
 import { classifyPendingProducts, describeClassificationRun } from "@/lib/productAutomation/classification/classifyEngine";
 import { autoUpdateApprovedProducts } from "@/lib/productAutomation/update/autoUpdateEngine";
+import { describeAutoUpdateRun } from "@/lib/productAutomation/update/describeAutoUpdateRun";
 import type { ImportConfig } from "@/lib/productAutomation/importConfig";
 
 export type { SyncAllResult };
@@ -33,11 +34,6 @@ export async function syncAllNetworks(): Promise<SyncAllResult> {
 export type AutoUpdateResult = {
   message: string;
 };
-
-function describeAutoUpdateRun(summary: Awaited<ReturnType<typeof autoUpdateApprovedProducts>>): string {
-  if (summary.candidatesChecked === 0) return "Auto-update: no approved products to check.";
-  return `Auto-update: ${summary.offersUpdated} offer(s) refreshed, ${summary.productsUpdated} product(s) updated, ${summary.offersSkippedManual} skipped (manually controlled).`;
-}
 
 /** Standalone auto-update pass, independent of "Sync Now" — useful for propagating a manual candidate edit without a full re-sync. */
 export async function autoUpdateApprovedProductsAction(): Promise<AutoUpdateResult> {

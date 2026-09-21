@@ -8,6 +8,7 @@ import { isClassificationConfigured, AnthropicClassificationClient } from "../cl
 import { SupabaseClassificationStore } from "../classification/supabaseClassificationStore";
 import { classifyPendingProducts, describeClassificationRun } from "../classification/classifyEngine";
 import { autoUpdateApprovedProducts } from "../update/autoUpdateEngine";
+import { describeAutoUpdateRun } from "../update/describeAutoUpdateRun";
 import { acquireSyncLock, releaseSyncLock } from "./syncLock";
 
 type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
@@ -16,11 +17,6 @@ export type SyncAllResult = {
   ranNetworks: number;
   message: string;
 };
-
-function describeAutoUpdateRun(summary: Awaited<ReturnType<typeof autoUpdateApprovedProducts>>): string {
-  if (summary.candidatesChecked === 0) return "Auto-update: no approved products to check.";
-  return `Auto-update: ${summary.offersUpdated} offer(s) refreshed, ${summary.productsUpdated} product(s) updated, ${summary.offersSkippedManual} skipped (manually controlled).`;
-}
 
 /**
  * The one implementation of the full sync pipeline (network syncs ->

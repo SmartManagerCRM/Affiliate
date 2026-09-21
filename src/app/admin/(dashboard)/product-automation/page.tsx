@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Radar, RefreshCw, History, Settings2, Sparkles, Gauge, RotateCw, LineChart, Package } from "lucide-react";
+import { Radar, RefreshCw, History, Settings2, Sparkles, Gauge, RotateCw, LineChart, Package, AlertTriangle } from "lucide-react";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -12,6 +12,8 @@ import { AutoUpdateButton } from "@/components/admin/AutoUpdateButton";
 import { getNetworkStatuses } from "@/lib/productAutomation/registry";
 import { isClassificationConfigured } from "@/lib/productAutomation/classification/anthropicClient";
 import { isLockActive } from "@/lib/productAutomation/scheduler/syncLock";
+import { AUTO_UPDATE_ERROR_TYPES } from "@/lib/productAutomation/update/autoUpdateEngine";
+import { getRecentImportErrors } from "@/lib/productAutomation/errors";
 import { updateImportConfig } from "@/actions/productAutomation";
 import { DEFAULT_IMPORT_CONFIG, type ImportConfig } from "@/lib/productAutomation/importConfig";
 import { getAutomationPerformance } from "@/lib/adminAnalytics";
@@ -78,15 +80,25 @@ export default async function ProductAutomationPage({
       .eq("opportunity_signal->>status", "cheaper"),
   ]);
 
-  const [{ count: approvedCount }, { count: automationManagedCount }, { count: manuallyControlledCount }, { count: outOfStockCount }] =
-    await Promise.all([
-      supabase.from("product_import_sources").select("id", { count: "exact", head: true }).eq("approval_status", "approved"),
-      supabase.from("offers").select("id", { count: "exact", head: true }).eq("managed_by_automation", true),
-      supabase.from("offers").select("id", { count: "exact", head: true }).eq("managed_by_automation", false),
-      supabase.from("offers").select("id", { count: "exact", head: true }).eq("availability", "out_of_stock"),
-    ]);
+  const [
+    { count: approvedCount },
+    { count: automationManagedCount },
+    { count: manuallyControlledCount },
+    { count: outOfStockCount },
+    { count: autoUpdateErrorCount },
+  ] = await Promise.all([
+    supabase.from("product_import_sources").select("id", { count: "exact", head: true }).eq("approval_status", "approved"),
+    supabase.from("offers").select("id", { count: "exact", head: true }).eq("managed_by_automation", true),
+    supabase.from("offers").select("id", { count: "exact", head: true }).eq("managed_by_automation", false),
+    supabase.from("offers").select("id", { count: "exact", head: true }).eq("availability", "out_of_stock"),
+    supabase
+      .from("product_import_errors")
+      .select("id", { count: "exact", head: true })
+      .in("error_type", AUTO_UPDATE_ERROR_TYPES),
+  ]);
 
   const performance = await getAutomationPerformance(supabase);
+  const recentErrors = await getRecentImportErrors(supabase, 10);
 
   return (
     <div className="flex flex-col gap-8">
@@ -229,18 +241,21 @@ export default async function ProductAutomationPage({
           <h2 className="font-serif-display text-lg font-semibold text-espresso">Automatic Updates</h2>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           <Stat label="Approved products" value={approvedCount ?? 0} />
           <Stat label="Auto-managed offers" value={automationManagedCount ?? 0} />
           <Stat label="Manually controlled" value={manuallyControlledCount ?? 0} />
           <Stat label="Out of stock" value={outOfStockCount ?? 0} />
+          <Stat label="Write errors (all time)" value={autoUpdateErrorCount ?? 0} />
         </div>
 
         <p className="mt-3 text-xs text-espresso/40">
           Runs automatically after every sync: refreshes price/availability/image for already-approved
           products straight from the feed. The moment an offer is edited by hand, it&apos;s marked
           &quot;manually controlled&quot; and automation never overwrites it again. An offer that goes
-          out of stock is marked unavailable, never deleted — its click history is always preserved.
+          out of stock is marked unavailable, never deleted — its click history is always preserved. A
+          write that fails is never silently dropped — it&apos;s counted here and logged below under
+          Recent Errors.
         </p>
 
         <div className="mt-6">
@@ -293,6 +308,49 @@ export default async function ProductAutomationPage({
           estimated. There is no order/conversion/revenue data in this schema, so no conversion rate, EPC,
           or revenue figure is ever shown or computed; a product with zero clicks is reported as &quot;No
           performance data yet,&quot; never a fabricated number.
+        </p>
+      </section>
+
+      {/* Recent Errors */}
+      <section className="rounded-2xl border border-espresso/10 bg-white p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-2.5">
+          <AlertTriangle className="h-4.5 w-4.5 text-espresso/45" strokeWidth={1.75} />
+          <h2 className="font-serif-display text-lg font-semibold text-espresso">Recent Errors</h2>
+        </div>
+
+        {recentErrors.length === 0 ? (
+          <p className="py-6 text-center text-sm text-espresso/45">
+            No errors recorded — every sync and auto-update write has gone through cleanly.
+          </p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-espresso/8">
+            {recentErrors.map((e) => (
+              <li key={e.id} className="py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="red">{e.source === "auto_update" ? "Auto-update" : e.networkName ?? "Sync"}</Badge>
+                  <span className="text-xs font-medium uppercase tracking-wide text-espresso/45">{e.errorType}</span>
+                  <span className="text-xs text-espresso/40">{new Date(e.createdAt).toLocaleString()}</span>
+                </div>
+                <p className="mt-1 text-sm text-espresso">{e.errorMessage}</p>
+                {e.externalId && (
+                  <p className="mt-0.5 text-xs text-espresso/40">
+                    {e.source === "auto_update" ? (
+                      <Link href={`/admin/product-candidates/${e.externalId}`} className="text-accent-green-dark hover:underline">
+                        View candidate
+                      </Link>
+                    ) : (
+                      `External ID: ${e.externalId}`
+                    )}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p className="mt-3 text-xs text-espresso/40">
+          Every product rejected during a sync and every failed auto-update write is logged here, in
+          full — nothing about a real error is ever summarized away to just a count.
         </p>
       </section>
 

@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Table, Th, Td, EmptyState } from "@/components/admin/Table";
 import { Badge } from "@/components/ui/Badge";
+import { getImportErrorsBySyncRun } from "@/lib/productAutomation/errors";
 
 const STATUS_TONE = {
   completed: "green",
@@ -19,6 +20,9 @@ export default async function ProductAutomationHistoryPage() {
     )
     .order("started_at", { ascending: false })
     .limit(100);
+
+  const runIdsWithErrors = (runs ?? []).filter((r) => r.errors_count > 0).map((r) => r.id);
+  const errorsByRun = await getImportErrorsBySyncRun(supabase, runIdsWithErrors);
 
   return (
     <div>
@@ -62,7 +66,24 @@ export default async function ProductAutomationHistoryPage() {
                 <Td>{run.products_imported}</Td>
                 <Td>{run.products_updated}</Td>
                 <Td>{run.products_rejected}</Td>
-                <Td>{run.errors_count}</Td>
+                <Td>
+                  {run.errors_count > 0 ? (
+                    <details>
+                      <summary className="cursor-pointer text-red-700">{run.errors_count}</summary>
+                      <ul className="mt-2 max-w-sm space-y-2">
+                        {(errorsByRun.get(run.id) ?? []).map((e) => (
+                          <li key={e.id} className="text-xs text-espresso/60">
+                            <span className="font-semibold uppercase tracking-wide text-espresso/45">{e.errorType}</span>
+                            {e.externalId && <span className="text-espresso/40"> · {e.externalId}</span>}
+                            <p className="text-espresso">{e.errorMessage}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : (
+                    run.errors_count
+                  )}
+                </Td>
               </tr>
             ))}
           </tbody>

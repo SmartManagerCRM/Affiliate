@@ -12,9 +12,31 @@ export type AutoUpdateSummary = {
   offersUpdated: number;
   offersSkippedManual: number;
   productsUpdated: number;
+  errors: number;
 };
 
 const DEFAULT_BATCH_LIMIT = 200;
+
+/** error_type values this engine writes to product_import_errors — kept as constants so the write and any later read/filter can't drift apart. */
+export const AUTO_UPDATE_OFFER_ERROR = "auto_update_offer_failed";
+export const AUTO_UPDATE_PRODUCT_ERROR = "auto_update_product_failed";
+export const AUTO_UPDATE_ERROR_TYPES = [AUTO_UPDATE_OFFER_ERROR, AUTO_UPDATE_PRODUCT_ERROR] as const;
+
+async function logAutoUpdateError(
+  supabase: SupabaseAdmin,
+  errorType: string,
+  errorMessage: string,
+  context: { candidateId: string; productId: string; offerId: string }
+) {
+  await supabase.from("product_import_errors").insert({
+    sync_run_id: null,
+    network_id: null,
+    external_id: context.candidateId,
+    error_type: errorType,
+    error_message: errorMessage,
+    raw_data: context as never,
+  });
+}
 
 /**
  * Propagates fresh feed data to already-approved products/offers, without
@@ -62,6 +84,7 @@ export async function autoUpdateApprovedProducts(
   let offersUpdated = 0;
   let offersSkippedManual = 0;
   let productsUpdated = 0;
+  let errors = 0;
 
   for (const candidate of candidates ?? []) {
     const productId = candidate.product_id;
@@ -101,7 +124,16 @@ export async function autoUpdateApprovedProducts(
       .from("offers")
       .update(buildOfferUpdate(offerSyncFields))
       .eq("id", offerId);
-    if (!offerUpdateError) offersUpdated += 1;
+    if (offerUpdateError) {
+      errors += 1;
+      await logAutoUpdateError(supabase, AUTO_UPDATE_OFFER_ERROR, offerUpdateError.message, {
+        candidateId: candidate.id,
+        productId,
+        offerId,
+      });
+    } else {
+      offersUpdated += 1;
+    }
 
     const { data: existingProduct } = await supabase
       .from("products")
@@ -136,7 +168,16 @@ export async function autoUpdateApprovedProducts(
           ...(fieldUpdate.brandId !== undefined && { brand_id: fieldUpdate.brandId }),
         })
         .eq("id", productId);
-      if (!productUpdateError) productsUpdated += 1;
+      if (productUpdateError) {
+        errors += 1;
+        await logAutoUpdateError(supabase, AUTO_UPDATE_PRODUCT_ERROR, productUpdateError.message, {
+          candidateId: candidate.id,
+          productId,
+          offerId,
+        });
+      } else {
+        productsUpdated += 1;
+      }
     }
   }
 
@@ -145,5 +186,6 @@ export async function autoUpdateApprovedProducts(
     offersUpdated,
     offersSkippedManual,
     productsUpdated,
+    errors,
   };
 }
