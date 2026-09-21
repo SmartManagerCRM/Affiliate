@@ -21,14 +21,22 @@ export type { SyncAllResult };
 export async function syncAllNetworks(): Promise<SyncAllResult> {
   const { supabase, admin } = await requireAdmin();
 
-  const result = await runScheduledSync(supabase, { lockedBy: `admin:${admin.email}` });
+  try {
+    const result = await runScheduledSync(supabase, { lockedBy: `admin:${admin.email}` });
 
-  revalidatePath("/admin/product-automation");
-  revalidatePath("/admin/product-automation/history");
-  revalidatePath("/admin/products");
-  revalidatePath("/admin/offers");
+    revalidatePath("/admin/product-automation");
+    revalidatePath("/admin/product-automation/history");
+    revalidatePath("/admin/products");
+    revalidatePath("/admin/offers");
 
-  return result;
+    return result;
+  } catch (err) {
+    // Never let an unexpected failure escape as an uncaught Server Action
+    // error — that crashes the whole page with a generic "server error"
+    // instead of showing the admin what went wrong.
+    const message = err instanceof Error ? err.message : "Unknown error.";
+    return { ranNetworks: 0, message: `Sync failed: ${message}` };
+  }
 }
 
 export type AutoUpdateResult = {

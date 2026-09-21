@@ -62,16 +62,29 @@ async function runSyncPipeline(supabase: SupabaseAdmin): Promise<SyncAllResult> 
 
   for (const entry of connected) {
     if (entry.key === "admitad") {
-      const outcome = await runAdmitadPrograms(supabase, store, entry.label);
-      ranNetworks += outcome.ranPrograms;
-      results.push(outcome.message);
+      try {
+        const outcome = await runAdmitadPrograms(supabase, store, entry.label);
+        ranNetworks += outcome.ranPrograms;
+        results.push(outcome.message);
+      } catch (err) {
+        // An unexpected failure here (e.g. a DB write outside runNetworkSync's
+        // own try/catch) must never take down the rest of the pipeline —
+        // requirement: Admitad and CJ sync independently of each other.
+        const message = err instanceof Error ? err.message : "Unknown error.";
+        results.push(`${entry.label}: sync failed unexpectedly — ${message}`);
+      }
       continue;
     }
 
     if (entry.key === "cj") {
-      const outcome = await runCjPrograms(supabase, store, entry.label);
-      ranNetworks += outcome.ranPrograms;
-      results.push(outcome.message);
+      try {
+        const outcome = await runCjPrograms(supabase, store, entry.label);
+        ranNetworks += outcome.ranPrograms;
+        results.push(outcome.message);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error.";
+        results.push(`${entry.label}: sync failed unexpectedly — ${message}`);
+      }
       continue;
     }
 

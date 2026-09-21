@@ -116,6 +116,12 @@ export async function syncCjNetworkAction(): Promise<SyncCjResult> {
     revalidatePath("/admin/offers");
 
     return { message: outcome.message };
+  } catch (err) {
+    // Never let an unexpected failure escape as an uncaught Server Action
+    // error — that crashes the whole page with a generic "server error"
+    // instead of showing the admin what went wrong.
+    const message = err instanceof Error ? err.message : "Unknown error.";
+    return { message: `Sync failed: ${message}` };
   } finally {
     await releaseSyncLock(supabase);
   }
