@@ -22,6 +22,7 @@ type SupabaseAdmin = Awaited<ReturnType<typeof createClient>>;
 function toRecord(row: {
   id: string;
   network_id: string | null;
+  program_id: string | null;
   status: string;
   started_at: string;
   completed_at: string | null;
@@ -35,6 +36,7 @@ function toRecord(row: {
   return {
     id: row.id,
     networkId: row.network_id ?? "",
+    programId: row.program_id,
     status: row.status as SyncRunRecord["status"],
     startedAt: row.started_at,
     completedAt: row.completed_at,
@@ -51,12 +53,12 @@ function toRecord(row: {
 export class SupabaseSyncStore implements SyncStore {
   constructor(private readonly supabase: SupabaseAdmin) {}
 
-  async createRun(networkId: string): Promise<SyncRunRecord> {
+  async createRun(networkId: string, programId: string | null = null): Promise<SyncRunRecord> {
     const { data, error } = await this.supabase
       .from("product_sync_runs")
-      .insert({ network_id: networkId, status: "running" })
+      .insert({ network_id: networkId, program_id: programId, status: "running" })
       .select(
-        "id, network_id, status, started_at, completed_at, products_found, products_imported, products_updated, products_rejected, errors_count, error_message"
+        "id, network_id, program_id, status, started_at, completed_at, products_found, products_imported, products_updated, products_rejected, errors_count, error_message"
       )
       .single();
 
@@ -139,6 +141,7 @@ export class SupabaseSyncStore implements SyncStore {
       .from("product_import_sources")
       .insert({
         network_id: params.networkId,
+        program_id: params.programId,
         external_product_id: params.externalProductId,
         external_offer_id: params.externalOfferId ?? null,
         ...normalizedFields,

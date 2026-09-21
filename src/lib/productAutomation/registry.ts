@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getAdmitadConfig, isAdmitadFullyConfigured } from "./adapters/admitad/config";
+import { getAdmitadConfig, hasAdmitadCredentials } from "./adapters/admitad/config";
 
 /**
  * The known affiliate networks the automation system can eventually talk
@@ -17,8 +17,12 @@ export type NetworkRegistryEntry = {
    * requirement is more nuanced than "every one of these is set". */
   requiredEnvVars: string[];
   /** Overrides the default "every requiredEnvVars is set" check. Admitad's
-   * real requirement is "(an access token) OR (a client id + secret), AND
-   * a product feed URL" — not a flat AND over a fixed list. */
+   * real requirement is "an access token, OR a client id + secret" — not a
+   * flat AND over a fixed list. This is account-level only: whether any
+   * Admitad *program* is actually configured to sync is a separate,
+   * per-program question answered by admitad_programs, not by this env-var
+   * check (see programsStore.ts) — adding a program never needs a new env
+   * var here. */
   isConfigured?: () => boolean;
 };
 
@@ -26,11 +30,8 @@ export const NETWORK_REGISTRY: NetworkRegistryEntry[] = [
   {
     key: "admitad",
     label: "Admitad",
-    requiredEnvVars: [
-      "ADMITAD_ACCESS_TOKEN (or ADMITAD_CLIENT_ID + ADMITAD_CLIENT_SECRET)",
-      "ADMITAD_PRODUCT_FEED_URL",
-    ],
-    isConfigured: () => isAdmitadFullyConfigured(getAdmitadConfig()),
+    requiredEnvVars: ["ADMITAD_ACCESS_TOKEN (or ADMITAD_CLIENT_ID + ADMITAD_CLIENT_SECRET)"],
+    isConfigured: () => hasAdmitadCredentials(getAdmitadConfig()),
   },
   {
     key: "cj",

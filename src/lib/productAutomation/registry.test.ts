@@ -5,7 +5,6 @@ const ENV_KEYS = [
   "ADMITAD_ACCESS_TOKEN",
   "ADMITAD_CLIENT_ID",
   "ADMITAD_CLIENT_SECRET",
-  "ADMITAD_PRODUCT_FEED_URL",
   "ADMITAD_API_BASE_URL",
   "CJ_API_KEY",
   "CJ_WEBSITE_ID",
@@ -41,34 +40,28 @@ describe("product automation network registry", () => {
     expect(isNetworkConfigured(admitad)).toBe(false);
   });
 
-  it("reports Admitad as not configured with credentials but no feed URL", () => {
+  // Admitad is now ONE account-level connection: credentials alone are
+  // enough to be "configured". Which programs/feeds actually sync is a
+  // separate, per-program question answered by the admitad_programs table,
+  // never by an env var — so there is no "configured but no feed URL" case
+  // any more at this (account) layer.
+  it("reports Admitad as configured with just a client id/secret pair — no feed URL involved", () => {
     const admitad = NETWORK_REGISTRY.find((n) => n.key === "admitad")!;
     process.env.ADMITAD_CLIENT_ID = "test-id";
     process.env.ADMITAD_CLIENT_SECRET = "test-secret";
-    // ADMITAD_PRODUCT_FEED_URL intentionally left unset
-    expect(isNetworkConfigured(admitad)).toBe(false);
-  });
-
-  it("reports Admitad as not configured with a feed URL but only half a credential pair", () => {
-    const admitad = NETWORK_REGISTRY.find((n) => n.key === "admitad")!;
-    process.env.ADMITAD_CLIENT_ID = "test-id";
-    // ADMITAD_CLIENT_SECRET intentionally left unset
-    process.env.ADMITAD_PRODUCT_FEED_URL = "https://example.test/feed.csv";
-    expect(isNetworkConfigured(admitad)).toBe(false);
-  });
-
-  it("reports Admitad as configured with a client id/secret pair and a feed URL", () => {
-    const admitad = NETWORK_REGISTRY.find((n) => n.key === "admitad")!;
-    process.env.ADMITAD_CLIENT_ID = "test-id";
-    process.env.ADMITAD_CLIENT_SECRET = "test-secret";
-    process.env.ADMITAD_PRODUCT_FEED_URL = "https://example.test/feed.csv";
     expect(isNetworkConfigured(admitad)).toBe(true);
   });
 
-  it("reports Admitad as configured with just an access token and a feed URL", () => {
+  it("reports Admitad as not configured with only half a credential pair", () => {
+    const admitad = NETWORK_REGISTRY.find((n) => n.key === "admitad")!;
+    process.env.ADMITAD_CLIENT_ID = "test-id";
+    // ADMITAD_CLIENT_SECRET intentionally left unset
+    expect(isNetworkConfigured(admitad)).toBe(false);
+  });
+
+  it("reports Admitad as configured with just an access token", () => {
     const admitad = NETWORK_REGISTRY.find((n) => n.key === "admitad")!;
     process.env.ADMITAD_ACCESS_TOKEN = "test-token";
-    process.env.ADMITAD_PRODUCT_FEED_URL = "https://example.test/feed.csv";
     expect(isNetworkConfigured(admitad)).toBe(true);
   });
 
@@ -87,14 +80,12 @@ describe("product automation network registry", () => {
   it("never returns the credential values themselves, only booleans", () => {
     process.env.ADMITAD_CLIENT_ID = "super-secret-id";
     process.env.ADMITAD_CLIENT_SECRET = "super-secret-value";
-    process.env.ADMITAD_PRODUCT_FEED_URL = "https://example.test/super-secret-feed.csv";
 
     const statuses = getNetworkStatuses();
     const serialized = JSON.stringify(statuses);
 
     expect(serialized).not.toContain("super-secret-id");
     expect(serialized).not.toContain("super-secret-value");
-    expect(serialized).not.toContain("super-secret-feed");
     expect(statuses.find((s) => s.key === "admitad")?.connected).toBe(true);
   });
 });

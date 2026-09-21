@@ -2,12 +2,13 @@ import { describe, it, expect, vi } from "vitest";
 import { AdmitadAdapter } from "./admitadAdapter";
 import type { AdmitadConfig } from "./config";
 
+const FEED_URL = "https://example.test/feed.csv";
+
 function makeConfig(overrides: Partial<AdmitadConfig> = {}): AdmitadConfig {
   return {
     clientId: "test-client-id",
     clientSecret: "test-client-secret",
     accessToken: null,
-    productFeedUrl: "https://example.test/feed.csv",
     apiBaseUrl: "https://api.admitad.test",
     ...overrides,
   };
@@ -32,8 +33,9 @@ function feedResponse(csv = SAMPLE_CSV) {
 
 describe("AdmitadAdapter", () => {
   describe("authentication", () => {
-    it("exchanges client id/secret for an access token, then fetches the feed", async () => {
-      const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+    it("exchanges client id/secret for an access token via HTTP Basic auth, then fetches the feed", async () => {
+      const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        void init;
         const href = input.toString();
         if (href.includes("/token/")) return tokenResponse();
         if (href.includes("feed.csv")) return feedResponse();
@@ -44,10 +46,12 @@ describe("AdmitadAdapter", () => {
       const result = await adapter.testConnection();
 
       expect(result.ok).toBe(true);
-      expect(fetchImpl).toHaveBeenCalledWith(
-        expect.stringContaining("/token/"),
-        expect.objectContaining({ method: "POST" })
-      );
+      const [, tokenInit] = fetchImpl.mock.calls.find(([url]) => url.toString().includes("/token/"))!;
+      const headers = tokenInit?.headers as Record<string, string>;
+      // client_id:client_secret, base64-encoded, sent as a Basic auth header
+      // — never as body params — matching Admitad's actual OAuth2 flow.
+      expect(headers.Authorization).toBe(`Basic ${Buffer.from("test-client-id:test-client-secret").toString("base64")}`);
+      expect(String(tokenInit?.body)).not.toContain("client_secret");
     });
 
     it("uses a pre-configured access token without requesting a new one", async () => {
@@ -57,7 +61,7 @@ describe("AdmitadAdapter", () => {
         fetchImpl,
       });
 
-      await adapter.fetchProducts({});
+      await adapter.fetchProducts({ feedUrl: FEED_URL });
 
       expect(fetchImpl).not.toHaveBeenCalledWith(expect.stringContaining("/token/"), expect.anything());
     });
@@ -65,7 +69,7 @@ describe("AdmitadAdapter", () => {
     it("testConnection reports not-configured without throwing when nothing is set", async () => {
       const fetchImpl = vi.fn();
       const adapter = new AdmitadAdapter({
-        config: makeConfig({ clientId: null, clientSecret: null, accessToken: null, productFeedUrl: null }),
+        config: makeConfig({ clientId: null, clientSecret: null, accessToken: null }),
         fetchImpl,
       });
 
@@ -96,11 +100,11 @@ describe("AdmitadAdapter", () => {
   });
 
   describe("fetchProducts", () => {
-    it("parses the feed and returns normalized products", async () => {
+    it("parses the feed at the given feedUrl and returns normalized products", async () => {
       const fetchImpl = vi.fn(async () => feedResponse());
       const adapter = new AdmitadAdapter({ config: makeConfig({ clientId: null, clientSecret: null, accessToken: "t" }), fetchImpl });
 
-      const result = await adapter.fetchProducts({});
+      const result = await adapter.fetchProducts({ feedUrl: FEED_URL });
 
       expect(result.products).toHaveLength(2);
       expect(result.products[0]).toMatchObject({ externalProductId: "p-1", name: "Widget" });
@@ -111,13 +115,13 @@ describe("AdmitadAdapter", () => {
       const fetchImpl = vi.fn(async () => feedResponse());
       const adapter = new AdmitadAdapter({ config: makeConfig({ clientId: null, clientSecret: null, accessToken: "t" }), fetchImpl });
 
-      const page1 = await adapter.fetchProducts({ limit: 1 });
+      const page1 = await adapter.fetchProducts({ feedUrl: FEED_URL, limit: 1 });
       expect(page1.products).toHaveLength(1);
       expect(page1.products[0].externalProductId).toBe("p-1");
       expect(page1.hasMore).toBe(true);
       expect(page1.nextCursor).toBe("1");
 
-      const page2 = await adapter.fetchProducts({ limit: 1, cursor: page1.nextCursor });
+      const page2 = await adapter.fetchProducts({ feedUrl: FEED_URL, limit: 1, cursor: page1.nextCursor });
       expect(page2.products).toHaveLength(1);
       expect(page2.products[0].externalProductId).toBe("p-2");
       expect(page2.hasMore).toBe(false);
@@ -127,10 +131,26 @@ describe("AdmitadAdapter", () => {
       const fetchImpl = vi.fn(async () => feedResponse());
       const adapter = new AdmitadAdapter({ config: makeConfig({ clientId: null, clientSecret: null, accessToken: "t" }), fetchImpl });
 
-      await adapter.fetchProducts({ limit: 1 });
-      await adapter.fetchProducts({ limit: 1, cursor: "1" });
+      await adapter.fetchProducts({ feedUrl: FEED_URL, limit: 1 });
+      await adapter.fetchProducts({ feedUrl: FEED_URL, limit: 1, cursor: "1" });
 
       expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it("caches each feed URL separately — two programs never share a cache entry", async () => {
+      const otherFeedCsv = ["id,name,price,currency,url", "q-1,Other,5,USD,https://example.test/go/q-1"].join("\n");
+      const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+        const href = input.toString();
+        return href.includes("other-feed.csv") ? feedResponse(otherFeedCsv) : feedResponse();
+      });
+      const adapter = new AdmitadAdapter({ config: makeConfig({ clientId: null, clientSecret: null, accessToken: "t" }), fetchImpl });
+
+      const first = await adapter.fetchProducts({ feedUrl: FEED_URL });
+      const second = await adapter.fetchProducts({ feedUrl: "https://example.test/other-feed.csv" });
+
+      expect(first.products.map((p) => p.externalProductId)).toEqual(["p-1", "p-2"]);
+      expect(second.products.map((p) => p.externalProductId)).toEqual(["q-1"]);
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
     });
 
     it("degrades gracefully on a malformed feed row instead of throwing", async () => {
@@ -138,22 +158,56 @@ describe("AdmitadAdapter", () => {
       const fetchImpl = vi.fn(async () => feedResponse(malformedCsv));
       const adapter = new AdmitadAdapter({ config: makeConfig({ clientId: null, clientSecret: null, accessToken: "t" }), fetchImpl });
 
-      const result = await adapter.fetchProducts({});
+      const result = await adapter.fetchProducts({ feedUrl: FEED_URL });
 
       expect(result.products).toHaveLength(2);
       expect(result.products[0].name).toBe("");
       expect(result.products[1].externalProductId).toBe("");
     });
 
-    it("throws a clear error when no product feed URL is configured", async () => {
+    it("throws a clear error when no feed URL is given", async () => {
       const fetchImpl = vi.fn();
       const adapter = new AdmitadAdapter({
-        config: makeConfig({ productFeedUrl: null, clientId: null, clientSecret: null, accessToken: "t" }),
+        config: makeConfig({ clientId: null, clientSecret: null, accessToken: "t" }),
         fetchImpl,
       });
 
-      await expect(adapter.fetchProducts({})).rejects.toThrow(/ADMITAD_PRODUCT_FEED_URL/);
+      await expect(adapter.fetchProducts({})).rejects.toThrow(/feed URL/i);
     });
+  });
+
+  describe("discoverPrograms", () => {
+    it("authenticates then requests the advertiser-programs list with a Bearer token", async () => {
+      const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        void init;
+        const href = input.toString();
+        if (href.includes("/token/")) return tokenResponse();
+        if (href.includes("/advcampaigns/")) {
+          return new Response(JSON.stringify({ results: [{ id: "123", name: "Acme", country: "AE" }] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        throw new Error(`Unexpected URL: ${href}`);
+      });
+
+      const adapter = new AdmitadAdapter({ config: makeConfig(), fetchImpl });
+      const programs = await adapter.discoverPrograms();
+
+      expect(programs).toEqual([{ admitadProgramId: "123", advertiserName: "Acme", country: "AE", feedId: null, feedUrl: null }]);
+      const [, campaignsInit] = fetchImpl.mock.calls.find(([url]) => url.toString().includes("/advcampaigns/"))!;
+      expect((campaignsInit?.headers as Record<string, string>).Authorization).toBe("Bearer test-access-token");
+    });
+
+    it("propagates a failure rather than returning a fabricated empty result silently mistaken for success", async () => {
+      const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+        if (input.toString().includes("/token/")) return tokenResponse();
+        return new Response("server error", { status: 500 });
+      });
+      const adapter = new AdmitadAdapter({ config: makeConfig(), fetchImpl });
+
+      await expect(adapter.discoverPrograms()).rejects.toThrow(/500/);
+    }, 10_000);
   });
 
   describe("retry behavior", () => {
@@ -166,7 +220,7 @@ describe("AdmitadAdapter", () => {
       });
 
       const adapter = new AdmitadAdapter({ config: makeConfig({ clientId: null, clientSecret: null, accessToken: "t" }), fetchImpl });
-      const result = await adapter.fetchProducts({});
+      const result = await adapter.fetchProducts({ feedUrl: FEED_URL });
 
       expect(result.products).toHaveLength(2);
       expect(fetchImpl).toHaveBeenCalledTimes(2);
@@ -181,7 +235,7 @@ describe("AdmitadAdapter", () => {
       });
 
       const adapter = new AdmitadAdapter({ config: makeConfig({ clientId: null, clientSecret: null, accessToken: "t" }), fetchImpl });
-      const result = await adapter.fetchProducts({});
+      const result = await adapter.fetchProducts({ feedUrl: FEED_URL });
 
       expect(result.products).toHaveLength(2);
       expect(fetchImpl).toHaveBeenCalledTimes(2);
@@ -191,7 +245,7 @@ describe("AdmitadAdapter", () => {
       const fetchImpl = vi.fn(async () => new Response("server error", { status: 500 }));
       const adapter = new AdmitadAdapter({ config: makeConfig({ clientId: null, clientSecret: null, accessToken: "t" }), fetchImpl });
 
-      await expect(adapter.fetchProducts({})).rejects.toThrow(/500/);
+      await expect(adapter.fetchProducts({ feedUrl: FEED_URL })).rejects.toThrow(/500/);
       expect(fetchImpl).toHaveBeenCalledTimes(3); // default maxAttempts
     }, 10_000);
 
@@ -212,7 +266,7 @@ describe("AdmitadAdapter", () => {
         timeoutMs: 25,
       });
 
-      await expect(adapter.fetchProducts({})).rejects.toThrow(/timed out/i);
+      await expect(adapter.fetchProducts({ feedUrl: FEED_URL })).rejects.toThrow(/timed out/i);
       expect(fetchImpl).toHaveBeenCalledTimes(3); // default maxAttempts
     }, 10_000);
   });

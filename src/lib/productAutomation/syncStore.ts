@@ -12,6 +12,8 @@ export type SyncRunStatus = "running" | "completed" | "failed";
 export type SyncRunRecord = {
   id: string;
   networkId: string;
+  /** Which admitad_programs row this run is for, when the network is program-scoped (e.g. Admitad). Null for a network with no program concept. */
+  programId: string | null;
   status: SyncRunStatus;
   startedAt: string;
   completedAt: string | null;
@@ -41,6 +43,8 @@ export type LogErrorParams = {
 
 export type UpsertImportSourceParams = {
   networkId: string;
+  /** Which admitad_programs row this candidate came from, when applicable. Null for a network with no program concept. */
+  programId: string | null;
   externalProductId: string;
   externalOfferId?: string | null;
   rawData: unknown;
@@ -122,7 +126,7 @@ export type ProductOffer = {
 };
 
 export interface SyncStore {
-  createRun(networkId: string): Promise<SyncRunRecord>;
+  createRun(networkId: string, programId?: string | null): Promise<SyncRunRecord>;
   completeRun(runId: string, counts: SyncRunCounts): Promise<void>;
   failRun(runId: string, errorMessage: string, errorsCount?: number): Promise<void>;
   logError(params: LogErrorParams): Promise<void>;

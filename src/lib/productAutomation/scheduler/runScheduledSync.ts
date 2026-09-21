@@ -2,6 +2,8 @@ import "server-only";
 import type { createClient } from "@/lib/supabase/server";
 import { NETWORK_REGISTRY, isNetworkConfigured } from "../registry";
 import { getAdapterForNetwork } from "../adapterFactory";
+import { AdmitadAdapter } from "../adapters/admitad/admitadAdapter";
+import { listSyncableAdmitadPrograms, recordProgramSyncResult } from "../adapters/admitad/programsStore";
 import { SupabaseSyncStore } from "../supabaseSyncStore";
 import { runNetworkSync } from "../syncEngine";
 import { isClassificationConfigured, AnthropicClassificationClient } from "../classification/anthropicClient";
@@ -57,6 +59,13 @@ async function runSyncPipeline(supabase: SupabaseAdmin): Promise<SyncAllResult> 
   let ranNetworks = 0;
 
   for (const entry of connected) {
+    if (entry.key === "admitad") {
+      const outcome = await runAdmitadPrograms(supabase, store, entry.label);
+      ranNetworks += outcome.ranPrograms;
+      results.push(outcome.message);
+      continue;
+    }
+
     const adapter = getAdapterForNetwork(entry.key);
     if (!adapter) {
       results.push(`${entry.label}: connected, but no adapter is implemented yet.`);
@@ -103,4 +112,53 @@ async function runSyncPipeline(supabase: SupabaseAdmin): Promise<SyncAllResult> 
     ranNetworks,
     message: results.join(" "),
   };
+}
+
+/**
+ * Syncs every active Admitad program that has a feed URL, sharing ONE
+ * authenticated AdmitadAdapter instance across all of them (one OAuth
+ * token fetch for the whole batch, not one per program). Each program's
+ * own admitad_programs row records its own last_synced_at/last_sync_status
+ * afterward, independent of the others — one program failing never stops
+ * the rest from syncing.
+ */
+async function runAdmitadPrograms(
+  supabase: SupabaseAdmin,
+  store: SupabaseSyncStore,
+  label: string
+): Promise<{ ranPrograms: number; message: string }> {
+  const { data: networkRow } = await supabase.from("affiliate_networks").select("id").ilike("name", label).maybeSingle();
+  if (!networkRow) {
+    return { ranPrograms: 0, message: `${label}: connected, but no matching affiliate_networks row was found.` };
+  }
+
+  const programs = await listSyncableAdmitadPrograms(supabase);
+  if (programs.length === 0) {
+    return {
+      ranPrograms: 0,
+      message: `${label}: connected, but no active program has a feed URL configured yet — add one in Admitad Programs.`,
+    };
+  }
+
+  const adapter = new AdmitadAdapter();
+  const parts: string[] = [];
+  let ranPrograms = 0;
+
+  for (const program of programs) {
+    // listSyncableAdmitadPrograms already filters to feed_url IS NOT NULL,
+    // but the type is still nullable — this satisfies TypeScript without
+    // weakening that filter.
+    if (!program.feedUrl) continue;
+
+    const outcome = await runNetworkSync(store, networkRow.id, adapter, { feedUrl: program.feedUrl, programId: program.id });
+    ranPrograms += 1;
+    await recordProgramSyncResult(supabase, program.id, { status: outcome.status, errorMessage: outcome.errorMessage });
+    parts.push(
+      outcome.status === "completed"
+        ? `${program.advertiserName}: imported ${outcome.productsImported}, updated ${outcome.productsUpdated}, rejected ${outcome.productsRejected} (of ${outcome.productsFound} found)`
+        : `${program.advertiserName}: sync failed — ${outcome.errorMessage}`
+    );
+  }
+
+  return { ranPrograms, message: `${label} [${parts.join("; ")}].` };
 }

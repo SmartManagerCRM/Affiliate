@@ -43,12 +43,21 @@ const MAX_PAGES = 500; // safety bound against a misbehaving adapter looping for
  * products/offers tables. That happens later, once a human (or, after
  * Phase 4/5, an auto-publish rule) approves a candidate in the review queue.
  */
+export type RunNetworkSyncOptions = {
+  /** Which feed to read for this run — required for a program-scoped network like Admitad; adapters with a single fixed feed ignore it. */
+  feedUrl?: string;
+  /** Which admitad_programs row (or equivalent) this run is for, so every candidate/error/run it produces is traceable back to its program. Null for a network with no program concept. */
+  programId?: string | null;
+};
+
 export async function runNetworkSync(
   store: SyncStore,
   networkId: string,
-  adapter: AffiliateNetworkAdapter
+  adapter: AffiliateNetworkAdapter,
+  options: RunNetworkSyncOptions = {}
 ): Promise<SyncRunOutcome> {
-  const run = await store.createRun(networkId);
+  const programId = options.programId ?? null;
+  const run = await store.createRun(networkId, programId);
 
   let productsFound = 0;
   let productsImported = 0;
@@ -67,7 +76,7 @@ export async function runNetworkSync(
         throw new Error(`Exceeded maximum page count (${MAX_PAGES}) — the adapter's cursor may be stuck.`);
       }
 
-      const page = await adapter.fetchProducts({ cursor });
+      const page = await adapter.fetchProducts({ cursor, feedUrl: options.feedUrl });
       productsFound += page.products.length;
 
       for (const product of page.products) {
@@ -90,6 +99,7 @@ export async function runNetworkSync(
 
         const { outcome, importSourceId } = await store.upsertImportSource({
           networkId,
+          programId,
           externalProductId: product.externalProductId,
           externalOfferId: product.offers[0]?.externalOfferId ?? null,
           rawData: product.raw,

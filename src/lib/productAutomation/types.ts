@@ -40,6 +40,8 @@ export type NormalizedProduct = {
 export type FetchProductsParams = {
   cursor?: string | null;
   limit?: number;
+  /** Which feed to read, for a network (like Admitad) whose products live behind many per-program feed URLs rather than one fixed endpoint. Adapters that only ever have one feed can ignore this. */
+  feedUrl?: string;
 };
 
 export type FetchProductsResult = {

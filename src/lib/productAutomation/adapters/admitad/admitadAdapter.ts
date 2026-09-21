@@ -8,9 +8,10 @@ import type {
   NormalizedOffer,
   NormalizedProduct,
 } from "../../types";
-import { getAdmitadConfig, hasAdmitadCredentials, isAdmitadFullyConfigured, type AdmitadConfig } from "./config";
+import { getAdmitadConfig, hasAdmitadCredentials, type AdmitadConfig } from "./config";
 import { withRetry, errorForResponse, fetchWithTimeout } from "../../httpRetry";
 import { parseCsvFeed, normalizeFeedRow } from "./feedParser";
+import { parseDiscoveredPrograms, type DiscoveredProgram } from "./discovery";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_PAGE_SIZE = 100;
@@ -23,12 +24,13 @@ export type AdmitadAdapterOptions = {
 };
 
 /**
- * Admitad network adapter. Product data always comes from the publisher's
- * own Product Feed URL (ADMITAD_PRODUCT_FEED_URL) — a CSV export the
- * publisher's Admitad account generates, not an endpoint this app guesses.
- * The OAuth token exchange (used only by connect()/testConnection(), never
- * for product data) hits an endpoint that could not be verified against
- * live Admitad docs in this sandbox — see requestAccessToken() below.
+ * Admitad network adapter — ONE shared account-level connection
+ * (OAuth token from ADMITAD_CLIENT_ID/SECRET or ADMITAD_ACCESS_TOKEN),
+ * used to read MANY per-program feeds. There is no single "the" Admitad
+ * feed URL any more: fetchProducts()/fetchOffers() take a `feedUrl` per
+ * call (see FetchProductsParams), sourced from an admitad_programs row
+ * (programsStore.ts) — never from an env var. A program with no feed_url
+ * configured simply has nothing to sync yet.
  */
 export class AdmitadAdapter implements AffiliateNetworkAdapter {
   readonly key = "admitad";
@@ -39,7 +41,7 @@ export class AdmitadAdapter implements AffiliateNetworkAdapter {
   private readonly timeoutMs: number;
 
   private accessToken: string | null;
-  private feedProductsCache: NormalizedProduct[] | null = null;
+  private readonly feedProductsCache = new Map<string, NormalizedProduct[]>();
 
   constructor(options: AdmitadAdapterOptions = {}) {
     this.config = options.config ?? getAdmitadConfig();
@@ -53,10 +55,10 @@ export class AdmitadAdapter implements AffiliateNetworkAdapter {
   }
 
   async testConnection(): Promise<ConnectionTestResult> {
-    if (!isAdmitadFullyConfigured(this.config)) {
+    if (!hasAdmitadCredentials(this.config)) {
       return {
         ok: false,
-        message: "Admitad is not fully configured (missing credentials or a product feed URL).",
+        message: "Admitad is not configured: set ADMITAD_ACCESS_TOKEN or ADMITAD_CLIENT_ID/ADMITAD_CLIENT_SECRET.",
       };
     }
     try {
@@ -69,7 +71,10 @@ export class AdmitadAdapter implements AffiliateNetworkAdapter {
   }
 
   async fetchProducts(params: FetchProductsParams): Promise<FetchProductsResult> {
-    const products = await this.loadFeedProducts();
+    if (!params.feedUrl) {
+      throw new Error("No feed URL was provided for this Admitad program — check its admitad_programs row.");
+    }
+    const products = await this.loadFeedProducts(params.feedUrl);
     const limit = params.limit ?? DEFAULT_PAGE_SIZE;
     const offset = params.cursor ? Number(params.cursor) : 0;
 
@@ -84,9 +89,13 @@ export class AdmitadAdapter implements AffiliateNetworkAdapter {
     };
   }
 
+  /** Unused by the current pipeline (offers come back inline with each product from fetchProducts) — searches whatever feeds are already cached in this instance rather than requiring a feedUrl the interface doesn't have a slot for. */
   async fetchOffers(externalProductId: string): Promise<NormalizedOffer[]> {
-    const products = await this.loadFeedProducts();
-    return products.find((p) => p.externalProductId === externalProductId)?.offers ?? [];
+    for (const products of this.feedProductsCache.values()) {
+      const match = products.find((p) => p.externalProductId === externalProductId);
+      if (match) return match.offers;
+    }
+    return [];
   }
 
   normalize(raw: unknown): NormalizedProduct {
@@ -95,13 +104,48 @@ export class AdmitadAdapter implements AffiliateNetworkAdapter {
 
   /**
    * ADMITAD ENDPOINT — UNVERIFIED. This sandbox has no network access to
-   * admitad.com, so this OAuth token request (path, param names, scope
-   * value) is a best-effort reconstruction of the standard OAuth2
-   * client_credentials flow Admitad's docs describe, not something
-   * confirmed against a live call. It only affects connect()/
-   * testConnection() — fetchProducts()/fetchOffers() never call this and
-   * always work off ADMITAD_PRODUCT_FEED_URL. Override ADMITAD_API_BASE_URL
-   * if this host/path turns out to be wrong.
+   * admitad.com, so this "list advertiser programs" call (path, response
+   * shape) is a best-effort reconstruction based on the advcampaigns_for_website
+   * OAuth scope this adapter already requests, not something confirmed
+   * against a live call or Admitad's current API docs. Parsing is
+   * deliberately defensive (parseDiscoveredPrograms tolerates missing/
+   * differently-named fields and never throws) so a wrong assumption here
+   * degrades to "found nothing" rather than corrupting admitad_programs —
+   * the manual "add a program by hand" path in the admin UI covers you
+   * completely if this needs correcting once tested against a real account.
+   */
+  async discoverPrograms(): Promise<DiscoveredProgram[]> {
+    const token = await this.ensureAccessToken();
+    const url = `${this.config.apiBaseUrl}/advcampaigns/?limit=200`;
+
+    const data = await withRetry(async () => {
+      const response = await fetchWithTimeout(
+        this.fetchImpl,
+        url,
+        { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+        this.timeoutMs
+      );
+      if (!response.ok) throw errorForResponse(response);
+      return response.json();
+    });
+
+    return parseDiscoveredPrograms(data);
+  }
+
+  /**
+   * ADMITAD ENDPOINT — UNVERIFIED, same caveat as discoverPrograms() above.
+   * Admitad's OAuth2 token endpoint is documented (in general OAuth2
+   * client_credentials fashion) to authenticate the client via HTTP Basic
+   * auth — `Authorization: Basic base64(client_id:client_secret)` — rather
+   * than by including client_id/client_secret in the request body. Real
+   * evidence for this: a previous attempt to configure this app had the
+   * account owner base64-encoding "client_id:client_secret" by hand into
+   * what was then the single ADMITAD_PRODUCT_FEED_URL env var, matching
+   * exactly what Admitad's own dashboard instructs publishers to compute
+   * for this header — strongly suggesting Basic auth is what their token
+   * endpoint actually expects. This method now generates that header
+   * server-side from the account credentials on every call, so nobody
+   * ever has to hand-compute or store a base64 string again.
    */
   private async requestAccessToken(): Promise<string> {
     if (!this.config.clientId || !this.config.clientSecret) {
@@ -109,10 +153,9 @@ export class AdmitadAdapter implements AffiliateNetworkAdapter {
     }
 
     const url = `${this.config.apiBaseUrl}/token/`;
+    const basicAuth = Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`, "utf-8").toString("base64");
     const body = new URLSearchParams({
       grant_type: "client_credentials",
-      client_id: this.config.clientId,
-      client_secret: this.config.clientSecret,
       scope: "advcampaigns_for_website public_data",
     });
 
@@ -122,7 +165,10 @@ export class AdmitadAdapter implements AffiliateNetworkAdapter {
         url,
         {
           method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${basicAuth}`,
+          },
           body: body.toString(),
         },
         this.timeoutMs
@@ -146,13 +192,9 @@ export class AdmitadAdapter implements AffiliateNetworkAdapter {
     return this.accessToken;
   }
 
-  private async loadFeedProducts(): Promise<NormalizedProduct[]> {
-    if (this.feedProductsCache) return this.feedProductsCache;
-
-    const feedUrl = this.config.productFeedUrl;
-    if (!feedUrl) {
-      throw new Error("ADMITAD_PRODUCT_FEED_URL is not configured.");
-    }
+  private async loadFeedProducts(feedUrl: string): Promise<NormalizedProduct[]> {
+    const cached = this.feedProductsCache.get(feedUrl);
+    if (cached) return cached;
 
     const csvText = await withRetry(async () => {
       const response = await fetchWithTimeout(this.fetchImpl, feedUrl, { method: "GET" }, this.timeoutMs);
@@ -161,7 +203,8 @@ export class AdmitadAdapter implements AffiliateNetworkAdapter {
     });
 
     const rows = parseCsvFeed(csvText);
-    this.feedProductsCache = rows.map(normalizeFeedRow);
-    return this.feedProductsCache;
+    const products = rows.map(normalizeFeedRow);
+    this.feedProductsCache.set(feedUrl, products);
+    return products;
   }
 }

@@ -52,11 +52,12 @@ class InMemorySyncStore implements SyncStore {
   offersByProductId = new Map<string, ProductOffer[]>();
   private nextId = 1;
 
-  async createRun(networkId: string): Promise<SyncRunRecord> {
+  async createRun(networkId: string, programId: string | null = null): Promise<SyncRunRecord> {
     const id = `run-${this.nextId++}`;
     const record: SyncRunRecord = {
       id,
       networkId,
+      programId,
       status: "running",
       startedAt: new Date().toISOString(),
       completedAt: null,

@@ -127,15 +127,23 @@ export default async function ProductAutomationPage({
           {networks.map((n) => (
             <li key={n.key} className="flex items-center justify-between py-3">
               <span className="text-sm font-medium text-espresso">{n.label}</span>
-              <Badge tone={n.connected ? "green" : "neutral"}>
-                {n.connected ? "Connected" : "Not Connected"}
-              </Badge>
+              <div className="flex items-center gap-3">
+                {n.key === "admitad" && (
+                  <Link href="/admin/product-automation/admitad-programs" className="text-sm font-medium text-accent-green">
+                    Manage Programs
+                  </Link>
+                )}
+                <Badge tone={n.connected ? "green" : "neutral"}>
+                  {n.connected ? "Connected" : "Not Connected"}
+                </Badge>
+              </div>
             </li>
           ))}
         </ul>
         <p className="mt-3 text-xs text-espresso/40">
-          Connect a network by adding its API credentials as server environment variables. No
-          credentials are ever sent to the browser.
+          Connect a network by adding its account-level API credentials as server environment
+          variables (never per-program — Admitad&apos;s advertiser programs and feeds are managed
+          under &quot;Manage Programs&quot; instead). No credentials are ever sent to the browser.
         </p>
       </section>
 

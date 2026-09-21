@@ -86,6 +86,57 @@ export type Database = {
         }
         Relationships: []
       }
+      admitad_programs: {
+        Row: {
+          active: boolean
+          admitad_program_id: string | null
+          advertiser_name: string
+          country: string | null
+          created_at: string
+          discovered_at: string | null
+          feed_format: string
+          feed_id: string | null
+          feed_url: string | null
+          id: string
+          last_sync_error: string | null
+          last_sync_status: string | null
+          last_synced_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          admitad_program_id?: string | null
+          advertiser_name: string
+          country?: string | null
+          created_at?: string
+          discovered_at?: string | null
+          feed_format?: string
+          feed_id?: string | null
+          feed_url?: string | null
+          id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          admitad_program_id?: string | null
+          advertiser_name?: string
+          country?: string | null
+          created_at?: string
+          discovered_at?: string | null
+          feed_format?: string
+          feed_id?: string | null
+          feed_url?: string | null
+          id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       affiliate_clicks: {
         Row: {
           country: string | null
@@ -504,6 +555,7 @@ export type Database = {
           offer_id: string | null
           opportunity_signal: Json
           product_id: string | null
+          program_id: string | null
           quality_score: number
           quality_score_factors: Json
           raw_data: Json
@@ -543,6 +595,7 @@ export type Database = {
           offer_id?: string | null
           opportunity_signal?: Json
           product_id?: string | null
+          program_id?: string | null
           quality_score?: number
           quality_score_factors?: Json
           raw_data?: Json
@@ -582,6 +635,7 @@ export type Database = {
           offer_id?: string | null
           opportunity_signal?: Json
           product_id?: string | null
+          program_id?: string | null
           quality_score?: number
           quality_score_factors?: Json
           raw_data?: Json
@@ -646,6 +700,13 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_import_sources_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "admitad_programs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       product_sync_lock: {
@@ -678,6 +739,7 @@ export type Database = {
           products_imported: number
           products_rejected: number
           products_updated: number
+          program_id: string | null
           started_at: string
           status: string
         }
@@ -692,6 +754,7 @@ export type Database = {
           products_imported?: number
           products_rejected?: number
           products_updated?: number
+          program_id?: string | null
           started_at?: string
           status?: string
         }
@@ -706,6 +769,7 @@ export type Database = {
           products_imported?: number
           products_rejected?: number
           products_updated?: number
+          program_id?: string | null
           started_at?: string
           status?: string
         }
@@ -715,6 +779,13 @@ export type Database = {
             columns: ["network_id"]
             isOneToOne: false
             referencedRelation: "affiliate_networks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_sync_runs_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "admitad_programs"
             referencedColumns: ["id"]
           },
         ]
