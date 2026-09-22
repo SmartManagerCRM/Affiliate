@@ -375,6 +375,150 @@ export async function getAutomationPerformance(
   return { ...summary, topProducts: summary.topProducts.slice(0, limit) };
 }
 
+export type CartEventCount = {
+  current: number;
+  previous: number;
+  /** null when there's no honest previous-period baseline to compare against. */
+  percentChange: number | null;
+};
+
+/**
+ * Real counts of cart_events rows only — cart_add/cart_remove/
+ * retailer_shop_click. Never a purchase, conversion, or sale: Smart Cart
+ * has no checkout, and retailer_shop_click only means the visitor was sent
+ * to the retailer's site, not that they bought anything there.
+ */
+export type CartEventsSummary = {
+  cartAdds: CartEventCount;
+  cartRemoves: CartEventCount;
+  shopClicks: CartEventCount;
+};
+
+async function countCartEventsInWindow(
+  supabase: SupabaseAdmin,
+  eventType: "cart_add" | "cart_remove" | "retailer_shop_click",
+  from: Date,
+  to: Date
+) {
+  const { count } = await supabase
+    .from("cart_events")
+    .select("*", { count: "exact", head: true })
+    .eq("event_type", eventType)
+    .gte("created_at", from.toISOString())
+    .lte("created_at", to.toISOString());
+  return count ?? 0;
+}
+
+export async function getCartEventsSummary(
+  supabase: SupabaseAdmin,
+  range: ResolvedRange
+): Promise<CartEventsSummary> {
+  const prev = previousPeriod(range);
+  const [addsCur, addsPrev, removesCur, removesPrev, shopCur, shopPrev] = await Promise.all([
+    countCartEventsInWindow(supabase, "cart_add", range.from, range.to),
+    countCartEventsInWindow(supabase, "cart_add", prev.from, prev.to),
+    countCartEventsInWindow(supabase, "cart_remove", range.from, range.to),
+    countCartEventsInWindow(supabase, "cart_remove", prev.from, prev.to),
+    countCartEventsInWindow(supabase, "retailer_shop_click", range.from, range.to),
+    countCartEventsInWindow(supabase, "retailer_shop_click", prev.from, prev.to),
+  ]);
+  return {
+    cartAdds: { current: addsCur, previous: addsPrev, percentChange: percentChange(addsCur, addsPrev) },
+    cartRemoves: {
+      current: removesCur,
+      previous: removesPrev,
+      percentChange: percentChange(removesCur, removesPrev),
+    },
+    shopClicks: { current: shopCur, previous: shopPrev, percentChange: percentChange(shopCur, shopPrev) },
+  };
+}
+
+export type TopCartProductRow = {
+  productId: string;
+  name: string;
+  mainImage: string | null;
+  adds: number;
+};
+
+/** Products most added to cart this period — a shopping-intent signal, never a sales figure. */
+export async function getTopCartAddProducts(
+  supabase: SupabaseAdmin,
+  range: ResolvedRange,
+  limit = 5
+): Promise<TopCartProductRow[]> {
+  const { data } = await supabase
+    .from("cart_events")
+    .select("product_id, product:products(id, name, main_image)")
+    .eq("event_type", "cart_add")
+    .not("product_id", "is", null)
+    .gte("created_at", range.from.toISOString())
+    .lte("created_at", range.to.toISOString())
+    .limit(5000);
+
+  const byProduct = new Map<string, TopCartProductRow>();
+  (data ?? []).forEach((row) => {
+    if (!row.product_id || !row.product) return;
+    const existing = byProduct.get(row.product_id);
+    if (existing) {
+      existing.adds += 1;
+    } else {
+      byProduct.set(row.product_id, {
+        productId: row.product_id,
+        name: row.product.name,
+        mainImage: row.product.main_image,
+        adds: 1,
+      });
+    }
+  });
+
+  return Array.from(byProduct.values())
+    .sort((a, b) => b.adds - a.adds)
+    .slice(0, limit);
+}
+
+export type TopCartRetailerRow = {
+  retailerId: string;
+  name: string;
+  logo: string | null;
+  shopClicks: number;
+};
+
+/** Retailers visitors were most often sent to from the cart this period — not a sales figure, just where Shop clicks led. */
+export async function getTopShopClickRetailers(
+  supabase: SupabaseAdmin,
+  range: ResolvedRange,
+  limit = 5
+): Promise<TopCartRetailerRow[]> {
+  const { data } = await supabase
+    .from("cart_events")
+    .select("retailer_id, retailer:retailers(id, name, logo)")
+    .eq("event_type", "retailer_shop_click")
+    .not("retailer_id", "is", null)
+    .gte("created_at", range.from.toISOString())
+    .lte("created_at", range.to.toISOString())
+    .limit(5000);
+
+  const byRetailer = new Map<string, TopCartRetailerRow>();
+  (data ?? []).forEach((row) => {
+    if (!row.retailer_id || !row.retailer) return;
+    const existing = byRetailer.get(row.retailer_id);
+    if (existing) {
+      existing.shopClicks += 1;
+    } else {
+      byRetailer.set(row.retailer_id, {
+        retailerId: row.retailer_id,
+        name: row.retailer.name,
+        logo: row.retailer.logo,
+        shopClicks: 1,
+      });
+    }
+  });
+
+  return Array.from(byRetailer.values())
+    .sort((a, b) => b.shopClicks - a.shopClicks)
+    .slice(0, limit);
+}
+
 export type ProductClickStats = {
   totalClicks: number;
   lastClickAt: string | null;

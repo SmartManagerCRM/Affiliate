@@ -1,0 +1,55 @@
+import Image from "next/image";
+import Link from "next/link";
+import { Package, ShoppingCart } from "lucide-react";
+import { DashboardCard } from "@/components/admin/dashboard/DashboardCard";
+import { isOptimizableImageSrc } from "@/lib/image";
+import type { TopCartProductRow } from "@/lib/adminAnalytics";
+
+/** Shopping-intent signal (cart_add events), not a sales ranking. */
+export function TopCartProductsCard({ rows }: { rows: TopCartProductRow[] }) {
+  return (
+    <DashboardCard
+      icon={ShoppingCart}
+      title="Most Added to Cart"
+      subtitle="Products with the most Add to Cart events this period"
+      viewAllHref="/admin/products"
+    >
+      {rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-espresso/45">No cart adds yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {rows.map((r) => (
+            <li key={r.productId}>
+              <Link
+                href={`/admin/products/${r.productId}`}
+                className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-beige/50"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-beige">
+                  {r.mainImage ? (
+                    <Image
+                      src={r.mainImage}
+                      alt=""
+                      width={40}
+                      height={40}
+                      unoptimized={!isOptimizableImageSrc(r.mainImage)}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Package className="h-4.5 w-4.5 text-espresso/30" strokeWidth={1.75} />
+                  )}
+                </div>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-espresso">{r.name}</span>
+                <span className="shrink-0 text-sm font-semibold text-espresso">
+                  {r.adds}
+                  <span className="ms-1 text-xs font-normal text-espresso/40">
+                    add{r.adds === 1 ? "" : "s"}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </DashboardCard>
+  );
+}

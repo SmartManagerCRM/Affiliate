@@ -1,13 +1,25 @@
 import { MousePointerClick } from "lucide-react";
 import { requireAdmin } from "@/lib/supabase/admin-guard";
 import { resolveDateRange } from "@/lib/dateRange";
-import { getClicksByDay, getClicksSummary, getDeviceBreakdown, getTopProducts, getTopRetailers } from "@/lib/adminAnalytics";
+import {
+  getClicksByDay,
+  getClicksSummary,
+  getDeviceBreakdown,
+  getTopProducts,
+  getTopRetailers,
+  getCartEventsSummary,
+  getTopCartAddProducts,
+  getTopShopClickRetailers,
+} from "@/lib/adminAnalytics";
 import { DateRangePicker } from "@/components/admin/DateRangePicker";
 import { DashboardCard } from "@/components/admin/dashboard/DashboardCard";
 import { ClicksChart } from "@/components/admin/dashboard/ClicksChart";
 import { TopProductsCard } from "@/components/admin/dashboard/TopProductsCard";
 import { TopRetailersCard } from "@/components/admin/dashboard/TopRetailersCard";
 import { DeviceBreakdownCard } from "@/components/admin/dashboard/DeviceBreakdownCard";
+import { CartActivityCard } from "@/components/admin/dashboard/CartActivityCard";
+import { TopCartProductsCard } from "@/components/admin/dashboard/TopCartProductsCard";
+import { TopCartRetailersCard } from "@/components/admin/dashboard/TopCartRetailersCard";
 import { TrendBadge } from "@/components/admin/dashboard/KpiCard";
 
 export default async function AdminReportsPage({
@@ -19,12 +31,24 @@ export default async function AdminReportsPage({
   const sp = await searchParams;
   const range = resolveDateRange(sp);
 
-  const [clicks, clicksByDay, devices, topProducts, topRetailers] = await Promise.all([
+  const [
+    clicks,
+    clicksByDay,
+    devices,
+    topProducts,
+    topRetailers,
+    cartEvents,
+    topCartProducts,
+    topShopClickRetailers,
+  ] = await Promise.all([
     getClicksSummary(supabase, range),
     getClicksByDay(supabase, range),
     getDeviceBreakdown(supabase, range),
     getTopProducts(supabase, range, 15),
     getTopRetailers(supabase, range, 15),
+    getCartEventsSummary(supabase, range),
+    getTopCartAddProducts(supabase, range, 15),
+    getTopShopClickRetailers(supabase, range, 15),
   ]);
 
   return (
@@ -55,6 +79,13 @@ export default async function AdminReportsPage({
         <TopProductsCard rows={topProducts} />
         <TopRetailersCard rows={topRetailers} />
         <DeviceBreakdownCard data={devices} />
+      </div>
+
+      <CartActivityCard summary={cartEvents} />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <TopCartProductsCard rows={topCartProducts} />
+        <TopCartRetailersCard rows={topShopClickRetailers} />
       </div>
     </div>
   );
