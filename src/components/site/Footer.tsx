@@ -59,6 +59,11 @@ export async function Footer() {
                   {t("whySelectedItems")}
                 </Link>
               </li>
+              <li>
+                <Link href="/privacy" className="text-sm text-espresso/70 hover:text-espresso">
+                  {t("privacyPolicy")}
+                </Link>
+              </li>
             </ul>
           </div>
 

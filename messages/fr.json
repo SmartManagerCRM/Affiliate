@@ -25,6 +25,7 @@
     "selectedItems": "Selected Items",
     "search": "Rechercher",
     "whySelectedItems": "Pourquoi Selected Items",
+    "privacyPolicy": "Politique de confidentialité",
     "affiliateDisclosure": "Déclaration d'affiliation",
     "rights": "© {year} Selected Items. Tous droits réservés.",
     "companion": "Un compagnon produits sélectionnés pour les entreprises pour lesquelles nous créons des sites web."
@@ -161,5 +162,33 @@
     "empty": "Aucun produit trouvé. Essayez un autre terme de recherche.",
     "metaTitle": "Recherche",
     "metaDescription": "Recherchez des produits sur Selected Items par nom, marque, catégorie ou activité."
+  },
+  "privacy": {
+    "metaTitle": "Politique de confidentialité",
+    "metaDescription": "Comment Selected Items collecte, utilise et protège les informations lorsque vous naviguez et achetez.",
+    "title": "Politique de confidentialité",
+    "lastUpdated": "Dernière mise à jour : 23 septembre 2026",
+    "introTitle": "Introduction",
+    "introBody": "Selected Items (« nous », « notre ») aide les visiteurs à découvrir des produits autour des activités et des entreprises que nous servons, et les met en relation avec les revendeurs qui vendent ces produits. Cette politique de confidentialité explique quelles informations nous collectons lorsque vous utilisez notre site, comment nous les utilisons, et les choix qui s'offrent à vous. Selected Items est une plateforme de découverte de produits et de marketing d'affiliation — nous ne vendons rien directement, et nous ne traitons ni ne conservons jamais d'informations de paiement.",
+    "infoTitle": "Informations que nous collectons",
+    "infoBody": "Nous limitons au strict minimum les informations que nous collectons, et nous ne vous demandons jamais de créer un compte ni de fournir des informations personnelles pour naviguer ou acheter.\n\nNavigation anonyme et données de panier : pour nous souvenir des produits que vous avez ajoutés à votre panier, nous plaçons dans votre navigateur un identifiant de panier sécurisé et généré aléatoirement. Cet identifiant n'est lié ni à votre nom, ni à votre adresse e-mail, ni à aucune autre information personnelle — il permet simplement à notre base de données de retrouver les articles et quantités de votre panier d'une visite à l'autre.\n\nSource de trafic : si vous arrivez sur Selected Items via un lien partenaire ou de recommandation, nous enregistrons dans votre navigateur un court code de référence afin d'attribuer correctement ce trafic à ce partenaire. Ce code ne vous identifie pas personnellement.\n\nPréférence de devise : si vous choisissez une devise d'affichage, nous mémorisons ce choix localement dans votre navigateur ; il n'est jamais envoyé à nos serveurs ni stocké par nos soins.\n\nComptes administrateurs : les membres de notre équipe qui gèrent le catalogue et les relations avec les revendeurs se connectent avec une adresse e-mail et un mot de passe via notre fournisseur d'authentification. Cela ne concerne que notre personnel interne, jamais les visiteurs du site.",
+    "useTitle": "Comment nous utilisons les informations",
+    "useBody": "Nous utilisons les informations décrites ci-dessus pour vous présenter les produits, les offres et le panier que vous attendez lors de votre prochaine visite ; pour attribuer correctement le trafic aux partenaires et sources de recommandation qui l'ont généré ; et pour comprendre, de manière agrégée, comment les visiteurs utilisent le site — par exemple, quels produits sont le plus consultés ou ajoutés au panier — afin de l'améliorer. Nous n'utilisons pas ces informations pour établir un profil individuel vous concernant, les vendre à des tiers, ou les utiliser à des fins publicitaires en dehors de Selected Items.",
+    "cookiesTitle": "Cookies et technologies de suivi",
+    "cookiesBody": "Nous utilisons un petit nombre de cookies et de valeurs stockées dans le navigateur, chacun ayant un objectif précis et limité :\n\n• Un cookie de session de panier, pour que votre panier persiste d'une visite à l'autre.\n• Un cookie de référence, pour qu'un partenaire vous ayant orienté vers nous soit correctement crédité si vous achetez ensuite via un lien d'affiliation.\n• Une préférence de devise stockée localement, uniquement dans votre navigateur.\n\nNous n'utilisons pas de cookies publicitaires tiers ni de cookies de suivi inter-sites. Vous pouvez à tout moment effacer ou bloquer les cookies via les paramètres de votre navigateur ; cela peut empêcher votre panier de persister d'une visite à l'autre.",
+    "affiliateTitle": "Liens d'affiliation et revendeurs tiers",
+    "affiliateBody": "Selected Items peut percevoir une commission lorsque vous achetez un produit via un lien de notre site — cela n'affecte jamais le prix que vous payez. Lorsque vous cliquez sur « Acheter », « Acheter chez ce revendeur » ou un lien similaire, vous quittez Selected Items et finalisez votre achat directement sur le site du revendeur. Nous ne traitons pas les paiements, ne gérons pas la validation de commande et ne stockons aucune information de paiement — tout cela se déroule entièrement sur le site du revendeur, sous sa propre politique de confidentialité et ses propres conditions. Nous vous encourageons à consulter la politique de confidentialité du revendeur avant de finaliser un achat chez lui.",
+    "thirdPartyTitle": "Services tiers",
+    "thirdPartyBody": "Nous faisons appel à un petit nombre de prestataires de confiance pour faire fonctionner Selected Items : un fournisseur de base de données et d'authentification pour stocker en sécurité les données de produits, d'offres et de panier ; les réseaux d'affiliation et revendeurs partenaires, qui ne reçoivent que le minimum d'informations nécessaires (comme un identifiant de clic) pour nous attribuer une vente ; et un fournisseur de polices de caractères utilisé pour l'affichage typographique du site. Aucun de ces prestataires ne reçoit de notre part votre nom, votre adresse e-mail ou vos informations de paiement.",
+    "retentionTitle": "Conservation des données",
+    "retentionBody": "Nous conservons les données de panier et de clics uniquement aussi longtemps qu'elles restent utiles aux fins décrites ci-dessus — par exemple, pour que votre panier reste disponible lors de votre prochaine visite, ou pour suivre la performance de nos partenariats d'affiliation dans le temps. Nous ne conservons pas ces données indéfiniment, et aucune n'est liée à votre identité réelle.",
+    "choicesTitle": "Vos choix",
+    "choicesBody": "Selected Items ne nécessitant pas de compte pour naviguer ou acheter, il n'existe aucun profil personnel auquel accéder, à corriger ou à supprimer. Vous pouvez vider votre panier à tout moment depuis la page panier, et bloquer ou supprimer les cookies à tout moment via les paramètres de votre navigateur.",
+    "childrenTitle": "Confidentialité des mineurs",
+    "childrenBody": "Selected Items s'adresse aux chefs d'entreprise et au grand public, et ne cible pas les enfants. Nous ne collectons pas sciemment d'informations auprès d'enfants.",
+    "changesTitle": "Modifications de cette politique",
+    "changesBody": "Nous pouvons mettre à jour cette politique de confidentialité de temps à autre, à mesure que Selected Items évolue. Nous mettrons alors à jour la date de « dernière mise à jour » ci-dessus, et les changements importants seront reflétés ici.",
+    "contactTitle": "Nous contacter",
+    "contactBody": "Pour toute question concernant cette politique de confidentialité, contactez-nous à {email}."
   }
 }

@@ -25,6 +25,7 @@
     "selectedItems": "Selected Items",
     "search": "Search",
     "whySelectedItems": "Why Selected Items",
+    "privacyPolicy": "Privacy Policy",
     "affiliateDisclosure": "Affiliate Disclosure",
     "rights": "© {year} Selected Items. All rights reserved.",
     "companion": "A curated product companion for businesses we build websites for."
@@ -161,5 +162,33 @@
     "empty": "No products found. Try a different search term.",
     "metaTitle": "Search",
     "metaDescription": "Search Selected Items for products by name, brand, category or activity."
+  },
+  "privacy": {
+    "metaTitle": "Privacy Policy",
+    "metaDescription": "How Selected Items collects, uses, and protects information when you browse and shop.",
+    "title": "Privacy Policy",
+    "lastUpdated": "Last updated: September 23, 2026",
+    "introTitle": "Introduction",
+    "introBody": "Selected Items (\"we\", \"us\", or \"our\") helps visitors discover products across the activities and businesses we serve, and connects them to the retailers that sell those products. This Privacy Policy explains what information we collect when you use our site, how we use it, and the choices available to you. Selected Items is a product-discovery and affiliate-marketing platform — we do not sell anything directly, and we never process payments or store payment information.",
+    "infoTitle": "Information We Collect",
+    "infoBody": "We keep the information we collect to a minimum, and we never ask you to create an account or provide personal details just to browse or shop.\n\nAnonymous browsing and cart data: to remember which products you've added to your cart, we set a secure, randomly generated cart identifier in your browser. This identifier isn't linked to your name, email, or any other personal information — it simply lets our database recall your cart items and quantities between visits.\n\nTraffic source information: if you arrive at Selected Items through a partner or referral link, we store a short referral code in your browser so we can correctly credit that partner. This code doesn't identify you personally.\n\nCurrency preference: if you choose a display currency, we remember that choice locally in your browser; it's never sent to or stored on our servers.\n\nAdmin accounts: members of our own team who manage the catalog and retailer relationships sign in with an email address and password through our authentication provider. This applies only to internal staff, never to site visitors.",
+    "useTitle": "How We Use Information",
+    "useBody": "We use the information described above to show you the products, offers, and cart you'd expect to see on your next visit; to correctly attribute traffic to the partners and referral sources that sent it; and to understand, in aggregate, how visitors use the site — for example, which products are viewed or added to cart most often — so we can improve it. We do not use this information to build an individual profile of you, sell it to third parties, or use it for advertising outside Selected Items.",
+    "cookiesTitle": "Cookies & Tracking Technologies",
+    "cookiesBody": "We use a small number of cookies and browser storage values, each with a specific, limited purpose:\n\n• A cart session cookie, so your cart persists across visits.\n• A referral cookie, so a partner who sent you to us is correctly credited if you later shop through an affiliate link.\n• A locally-stored currency preference, kept only in your browser.\n\nWe do not use third-party advertising or cross-site tracking cookies. You can clear or block cookies at any time through your browser settings; doing so may prevent your cart from persisting between visits.",
+    "affiliateTitle": "Affiliate Links & Third-Party Retailers",
+    "affiliateBody": "Selected Items may earn a commission when you purchase a product through a link on our site — this never affects the price you pay. When you click \"Buy Now,\" \"Shop at Retailer,\" or a similar link, you leave Selected Items and complete your purchase directly on the retailer's own website. We do not process payments, handle checkout, or store any payment information — that happens entirely on the retailer's site, under their own privacy policy and terms. We encourage you to review the retailer's privacy policy before completing a purchase there.",
+    "thirdPartyTitle": "Third-Party Services",
+    "thirdPartyBody": "We rely on a small number of trusted service providers to run Selected Items: a database and authentication provider to store product, offer, and cart data securely; the affiliate networks and retailers we partner with, who receive only the minimum information (such as a click identifier) needed to attribute a sale to us; and a font provider used to display the site's typography. None of these providers receive your name, email address, or payment details from us.",
+    "retentionTitle": "Data Retention",
+    "retentionBody": "We retain cart and click data only as long as it's useful for the purposes described above — for example, to keep your cart available on your next visit, or to report on affiliate performance over time. We do not retain this data indefinitely, and none of it is linked to your real-world identity.",
+    "choicesTitle": "Your Choices",
+    "choicesBody": "Because Selected Items doesn't require an account to browse or shop, there's no personal profile for you to access, correct, or delete. You can clear your cart at any time from the cart page, and you can block or delete cookies through your browser settings at any time.",
+    "childrenTitle": "Children's Privacy",
+    "childrenBody": "Selected Items is intended for business owners and general audiences, and is not directed at children. We do not knowingly collect information from children.",
+    "changesTitle": "Changes to This Policy",
+    "changesBody": "We may update this Privacy Policy from time to time as Selected Items evolves. We'll update the \"Last updated\" date above when we do, and significant changes will be reflected here.",
+    "contactTitle": "Contact Us",
+    "contactBody": "If you have questions about this Privacy Policy, contact us at {email}."
   }
 }
