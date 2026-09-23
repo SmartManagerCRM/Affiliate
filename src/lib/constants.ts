@@ -8,8 +8,8 @@ export const SITE_TAGLINE = "Smart products. Carefully selected.";
 export const AFFILIATE_DISCLOSURE =
   "Selected Items may earn a commission when you purchase through certain links. This does not affect the price you pay.";
 
-/** Shown at the bottom of the Privacy Policy page. Replace with a real, monitored inbox before launch. */
-export const PRIVACY_CONTACT_EMAIL = "privacy@selected-items.com";
+/** Shown at the bottom of the Privacy Policy page. */
+export const PRIVACY_CONTACT_EMAIL = "support@smartmanager.me";
 
 /** Cookie that carries client-site attribution (?ref=) across the visit. */
 export const REF_COOKIE_NAME = "si_ref";
