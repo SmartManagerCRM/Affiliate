@@ -42,7 +42,7 @@ export function ActivitiesDropdown({ activities }: { activities: Activity[] }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="true"
-        className="flex items-center gap-1.5 text-sm font-medium text-espresso/75 transition-colors hover:text-espresso"
+        className="flex items-center gap-1.5 text-sm font-bold text-espresso transition-colors hover:text-brown"
       >
         {selected ? selected.name : t("chooseActivity")}
         <ChevronDown
