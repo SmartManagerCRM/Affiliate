@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import type { Activity } from "@/lib/types";
 
 export function ActivitiesDropdown({ activities }: { activities: Activity[] }) {
   const t = useTranslations("header");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const selected = activities.find((activity) => pathname === `/${activity.slug}`) ?? null;
 
   useEffect(() => {
     if (!open) return;
@@ -42,7 +44,7 @@ export function ActivitiesDropdown({ activities }: { activities: Activity[] }) {
         aria-haspopup="true"
         className="flex items-center gap-1.5 text-sm font-medium text-espresso/75 transition-colors hover:text-espresso"
       >
-        {t("chooseActivity")}
+        {selected ? selected.name : t("chooseActivity")}
         <ChevronDown
           className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           strokeWidth={2}
@@ -51,16 +53,23 @@ export function ActivitiesDropdown({ activities }: { activities: Activity[] }) {
 
       {open && (
         <div className="absolute start-0 top-full z-50 mt-3 w-64 rounded-2xl border border-espresso/10 bg-white p-2 shadow-[var(--shadow-card-hover)]">
-          {activities.map((activity) => (
-            <Link
-              key={activity.id}
-              href={`/${activity.slug}`}
-              onClick={() => setOpen(false)}
-              className="block rounded-xl px-3.5 py-2.5 text-sm font-medium text-espresso/80 transition-colors hover:bg-beige hover:text-espresso"
-            >
-              {activity.name}
-            </Link>
-          ))}
+          {activities.map((activity) => {
+            const isSelected = activity.id === selected?.id;
+            return (
+              <Link
+                key={activity.id}
+                href={`/${activity.slug}`}
+                onClick={() => setOpen(false)}
+                aria-current={isSelected ? "page" : undefined}
+                className={`flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors hover:bg-beige hover:text-espresso ${
+                  isSelected ? "bg-beige text-espresso" : "text-espresso/80"
+                }`}
+              >
+                {activity.name}
+                {isSelected && <Check className="h-4 w-4 shrink-0 text-accent-green-dark" strokeWidth={2} />}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
