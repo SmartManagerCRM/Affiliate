@@ -1,4 +1,7 @@
 {
+  "header": {
+    "chooseActivity": "اختر نشاطك"
+  },
   "languageSwitcher": {
     "label": "اللغة"
   },

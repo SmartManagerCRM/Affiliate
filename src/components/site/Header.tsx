@@ -1,10 +1,10 @@
 import { getLocale } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
 import { getActivities } from "@/lib/queries";
 import { localizeActivity } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { Container } from "@/components/ui/Container";
 import { Logo } from "@/components/site/Logo";
+import { ActivitiesDropdown } from "@/components/site/ActivitiesDropdown";
 import { MobileMenu } from "@/components/site/MobileMenu";
 import { SearchBox } from "@/components/site/SearchBox";
 import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
@@ -21,15 +21,7 @@ export async function Header() {
         <Logo />
 
         <nav className="hidden items-center gap-7 lg:flex">
-          {activities.map((activity) => (
-            <Link
-              key={activity.id}
-              href={`/${activity.slug}`}
-              className="text-sm font-medium text-espresso/75 transition-colors hover:text-espresso"
-            >
-              {activity.name}
-            </Link>
-          ))}
+          <ActivitiesDropdown activities={activities} />
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">

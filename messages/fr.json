@@ -1,4 +1,7 @@
 {
+  "header": {
+    "chooseActivity": "Choisissez votre activité"
+  },
   "languageSwitcher": {
     "label": "Langue"
   },
